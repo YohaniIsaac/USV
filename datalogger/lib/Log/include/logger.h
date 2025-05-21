@@ -14,10 +14,11 @@ enum LogLevel {
     VERBOSE = 5 // Información muy detallada
 };
 
-// Declaración condicional de la clase Logger
-#if USE_LOGGER
+
 
 class Logger {
+// Declaración condicional de la clase Logger
+#if USE_LOGGER
 public:
     // Inicializar logger
     static void init(LogLevel defaultLevel = INFO, bool useSerial = true);
@@ -59,9 +60,9 @@ private:
     
     // Obtener nivel para un módulo específico
     static LogLevel getModuleLevel(const String& module);
+#endif // USE_LOGGER
 };
 
-#endif // USE_LOGGER
 
 // Funciones de envoltorio (wrapper) disponibles independientemente de USE_LOGGER
 // Estas funciones siempre existen pero compilan a nada cuando USE_LOGGER=0

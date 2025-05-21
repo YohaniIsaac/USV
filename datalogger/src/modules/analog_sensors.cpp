@@ -1,26 +1,20 @@
 #include "modules/analog_sensors.h"
 
-// Constructor
 AnalogSensors::AnalogSensors(uint8_t phPin, uint8_t doPin, uint8_t ecPin) 
     : phPin(phPin), doPin(doPin), ecPin(ecPin) {
-    // Inicializar factores de calibración con valores predeterminados
-    phOffset = 0.0;
-    phSlope = 3.3 / 4095.0 * 3.5;  // ADC de 12 bits (0-4095)
     
-    doOffset = 0.0;
-    doSlope = 1.0;
-    
-    ecOffset = 0.0;
-    ecSlope = 1.0;
-    ecK = 10.0;  // K=10 como se especificó
+    // Inicializar con valores predeterminados
+    initDefaultCalibration();
     
     // Inicializar últimos valores
     lastPH = 7.0;
     lastDO = 0.0;
     lastEC = 0.0;
+    lastRawPH = 0;
+    lastRawDO = 0;
+    lastRawEC = 0;
     
     // Inicializar arrays de lecturas
-    readIndex = 0;
     for (int i = 0; i < NUM_READINGS; i++) {
         phReadings[i] = 0;
         doReadings[i] = 0;
@@ -35,166 +29,143 @@ void AnalogSensors::begin() {
     pinMode(ecPin, INPUT);
     
     // Configuración específica para ESP32
-    analogReadResolution(12);  // Configurar resolución ADC a 12 bits (0-4095)
-    analogSetAttenuation(ADC_11db);  // Configurar atenuación para lecturas de 0-3.3V
+    analogReadResolution(12);  // 12 bits (0-4095)
+    analogSetAttenuation(ADC_11db);  // 0-3.3V
 }
 
-int AnalogSensors::readRawPH() {
-    // Leer valor crudo del sensor de pH
-    return analogRead(phPin);
-}
-
-int AnalogSensors::readRawDO() {
-    // Leer valor crudo del sensor de oxígeno disuelto
-    return analogRead(doPin);
-}
-
-int AnalogSensors::readRawEC() {
-    // Leer valor crudo del sensor de conductividad eléctrica
-    return analogRead(ecPin);
-}
-
-float AnalogSensors::getPH() {
-    // Leer valor crudo y promediar
-    int rawValue = 0;
+// ====================== CALCULAR VALORES Y ACTUALIZAR ======================
+void AnalogSensors::performReadings() {
+    // Realizar NUM_READINGS lecturas
+    // Secuencia: pH -> DO -> EC -> pH -> DO -> EC ...
     for (int i = 0; i < NUM_READINGS; i++) {
-        rawValue += readRawPH();
-        delay(10);
+        phReadings[i] = analogRead(phPin);
+        delayMicroseconds(100);  // Pequeña pausa entre lecturas
+        
+        doReadings[i] = analogRead(doPin);
+        delayMicroseconds(100);
+        
+        ecReadings[i] = analogRead(ecPin);
+        delayMicroseconds(100);
+        
+        // Pausa entre ciclos de lectura
+        if (i < NUM_READINGS - 1) {
+            delay(1);  // 1ms entre ciclos
+        }
     }
-    rawValue /= NUM_READINGS;
-    
-    // Convertir a voltaje
-    float voltage = (rawValue * 3.3) / 4095.0;
-    
-    // Convertir a pH (relación inversa típica: menor voltaje = mayor pH)
-    // pH = 7 + ((2.5 - voltage) / 0.18)
-    float pH = 7.0 + ((voltage - 2.5) / phSlope) + phOffset;
-    
-    lastPH = pH;
-    return pH;
-}
-
-float AnalogSensors::getDO() {
-    // Leer valor crudo y promediar
-    int rawValue = 0;
-    for (int i = 0; i < NUM_READINGS; i++) {
-        rawValue += readRawDO();
-        delay(10);
-    }
-    rawValue /= NUM_READINGS;
-    
-    // Convertir a voltaje
-    float voltage = (rawValue * 3.3) / 4095.0;
-    
-    // Convertir a concentración de oxígeno disuelto (mg/L)
-    // Esta es una fórmula simplificada, generalmente se usa una curva de calibración
-    float doValue = voltage * doSlope + doOffset;
-    
-    lastDO = doValue;
-    return doValue;
-}
-
-float AnalogSensors::getEC() {
-    // Leer valor crudo y promediar
-    int rawValue = 0;
-    for (int i = 0; i < NUM_READINGS; i++) {
-        rawValue += readRawEC();
-        delay(10);
-    }
-    rawValue /= NUM_READINGS;
-    
-    // Convertir a voltaje
-    float voltage = (rawValue * 3.3) / 4095.0;
-    
-    // Convertir a conductividad eléctrica (μS/cm)
-    // EC = Voltaje * K * Factor de calibración
-    float ecValue = voltage * ecK * ecSlope + ecOffset;
-    
-    // Normalmente se aplica compensación de temperatura
-    // ecValue = compensateTemperature(ecValue, currentTemperature);
-    
-    lastEC = ecValue;
-    return ecValue;
-}
-
-void AnalogSensors::calibratePH(float knownPH, int rawValue) {
-    // Convertir el valor crudo a voltaje
-    float voltage = (rawValue * 3.3) / 4095.0;
-    
-    // Calcular offset para este punto
-    // Si usamos más puntos, podríamos calcular tanto slope como offset
-    phOffset = knownPH - (7.0 + ((voltage - 2.5) / phSlope));
-}
-
-void AnalogSensors::calibrateDO(float knownDO, int rawValue) {
-    // Convertir el valor crudo a voltaje
-    float voltage = (rawValue * 3.3) / 4095.0;
-    
-    // Calibración simple de un punto (offset)
-    doOffset = knownDO - (voltage * doSlope);
-}
-
-void AnalogSensors::calibrateEC(float knownEC, int rawValue) {
-    // Convertir el valor crudo a voltaje
-    float voltage = (rawValue * 3.3) / 4095.0;
-    
-    // Calibración simple de un punto (offset)
-    ecOffset = knownEC - (voltage * ecK * ecSlope);
-}
-
-bool AnalogSensors::saveCalibration(ConfigStorage &storage) {
-    bool success = true;
-    
-    // Guardar calibración de pH
-    success &= storage.savePHCalibration(phOffset, phSlope);
-    
-    // Guardar calibración de DO
-    success &= storage.saveDOCalibration(doOffset, doSlope);
-    
-    // Guardar calibración de EC
-    success &= storage.saveECCalibration(ecOffset, ecSlope, ecK);
-    
-    return success;
-}
-
-bool AnalogSensors::loadCalibration(ConfigStorage &storage) {
-    bool success = true;
-    
-    // Cargar calibración de pH
-    success &= storage.loadPHCalibration(phOffset, phSlope);
-    
-    // Cargar calibración de DO
-    success &= storage.loadDOCalibration(doOffset, doSlope);
-    
-    // Cargar calibración de EC
-    success &= storage.loadECCalibration(ecOffset, ecSlope, ecK);
-    
-    return success;
 }
 
 void AnalogSensors::update() {
-    // Leer y almacenar todos los valores de sensores
-    phReadings[readIndex] = readRawPH();
-    doReadings[readIndex] = readRawDO();
-    ecReadings[readIndex] = readRawEC();
+    // Realizar lecturas de todos los sensores
+    performReadings();
+
+    // Calcular promedios
+    lastRawPH = getAverageReading(phReadings);
+    lastRawDO = getAverageReading(doReadings);
+    lastRawEC = getAverageReading(ecReadings);
     
-    // Avanzar índice
-    readIndex = (readIndex + 1) % NUM_READINGS;
-    
-    // Calcular promedios y convertir a valores finales
-    int avgPhRaw = getAverageReading(phReadings);
-    int avgDoRaw = getAverageReading(doReadings);
-    int avgEcRaw = getAverageReading(ecReadings);
-    
+    // Calcular valores calibrados (necesita calibración)
+    calculateValues();
+}
+
+void AnalogSensors::calculateValues() {
     // Convertir a voltaje
-    float phVoltage = (avgPhRaw * 3.3) / 4095.0;
-    float doVoltage = (avgDoRaw * 3.3) / 4095.0;
-    float ecVoltage = (avgEcRaw * 3.3) / 4095.0;
+    float phVoltage = (lastRawPH  * 3.3) / 4095.0;
+    float doVoltage = (lastRawDO * 3.3) / 4095.0;
+    float ecVoltage = (lastRawEC * 3.3) / 4095.0;
     
-    // Calcular valores finales
+    // Aplicar calibraciones
     lastPH = 7.0 + ((phVoltage - 2.5) / phSlope) + phOffset;
+
+    // pH = pH_neutro + (ΔVoltaje / Pendiente) + Offset
+    // phSlope = (Voltaje_pH4 - Voltaje_pH7) / (4 - 7) = ΔV / ΔpH
+
     lastDO = doVoltage * doSlope + doOffset;
     lastEC = ecVoltage * ecK * ecSlope + ecOffset;
+}
+
+// ====================== CALIBRACIÓN POR SENSOR  ======================
+//      (asume que el sensor debería medir el valor dado AHORA)
+int AnalogSensors::calibrateCurrentPH(float shouldBePH) {
+    // Tomar lectura actual
+    performReadings();
+    int currentRaw = getAverageReading(phReadings);
+
+    // Convertir valor raw a voltaje
+    float voltage = (currentRaw * 3.3) / 4095.0;
+    
+    // Calcular qué valor daría con la calibración actual
+    float currentCalculated = 7.0 + ((voltage - 2.5) / phSlope);
+    
+    // Ajustar offset para que la lectura actual sea el valor conocido
+    phOffset = shouldBePH - currentCalculated;
+    
+    return currentRaw;
+}
+
+int AnalogSensors::calibrateCurrentDO(float shouldBeDO) {
+    // Tomar lectura actual
+    performReadings();
+    int currentRaw = getAverageReading(doReadings);
+    
+    // Convertir valor raw a voltaje
+    float voltage = (currentRaw * 3.3) / 4095.0;
+    
+    // Calcular qué valor daría con la calibración actual
+    float currentCalculated = voltage * doSlope;
+    
+    // Ajustar offset para que la lectura actual sea el valor conocido
+    doOffset = shouldBeDO - currentCalculated;
+
+    return currentRaw;
+}
+
+int AnalogSensors::calibrateCurrentEC(float shouldBeEC) {
+    // Tomar lectura actual
+    performReadings();
+    int currentRaw = getAverageReading(ecReadings);
+    
+    // Convertir valor raw a voltaje
+    float voltage = (currentRaw * 3.3) / 4095.0;
+    
+    // Calcular qué valor daría con la calibración actual
+    float currentCalculated = voltage * ecK * ecSlope;
+    
+    // Ajustar offset para que la lectura actual sea el valor conocido
+    ecOffset = shouldBeEC - currentCalculated;
+
+    return currentRaw;
+}
+
+// ====================== CALIBRACIONES POR COMMAND ======================
+void AnalogSensors::setPhCalibration(float offset, float slope) {
+    phOffset = offset;
+    phSlope = slope;
+}
+
+void AnalogSensors::setDoCalibration(float offset, float slope) {
+    doOffset = offset;
+    doSlope = slope;
+}
+
+void AnalogSensors::setEcCalibration(float offset, float slope, float k) {
+    ecOffset = offset;
+    ecSlope = slope;
+    ecK = k;
+}
+
+// ====================== Funciones extras ======================
+
+void AnalogSensors::initDefaultCalibration() {
+    // Valores predeterminados
+    phOffset = 0.0;
+    phSlope = 3.3 / 4095.0 * 3.5;   // típico 180mV
+    
+    doOffset = 0.0;
+    doSlope = 1.0;                  // Ejemplo: 4mg/L por volt
+    
+    ecOffset = 0.0;
+    ecSlope = 1.0;
+    ecK = 10.0;                     // Constante de celda (se debe determinar experimentalmente)
 }
 
 String AnalogSensors::getCSVData() const {
@@ -202,8 +173,6 @@ String AnalogSensors::getCSVData() const {
     data += String(lastPH, 2) + ",";
     data += String(lastDO, 2) + ",";
     data += String(lastEC, 0) + ",";
-    
-    // Agregar también los valores crudos si están disponibles
     data += String(phReadings[readIndex]) + ",";
     data += String(doReadings[readIndex]) + ",";
     data += String(ecReadings[readIndex]);
@@ -217,11 +186,4 @@ int AnalogSensors::getAverageReading(int readings[]) {
         sum += readings[i];
     }
     return sum / NUM_READINGS;
-}
-
-float AnalogSensors::compensateTemperature(float ec, float temperature) {
-    // Compensación estándar de EC por temperatura
-    // EC25 = EC / (1 + 0.02 * (T - 25))
-    // Puede implementarse si es necesario
-    return NULL;
 }

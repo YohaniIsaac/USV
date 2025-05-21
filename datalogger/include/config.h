@@ -1,8 +1,8 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-// Define si usar LOGGER
-#define USE_LOGGER 1
+// Cantidad de lecturas para los sensores
+#define NUM_READINGS 10
 
 // Pines para los sensores analógicos
 #define ANALOG_SENSOR1_PIN 34

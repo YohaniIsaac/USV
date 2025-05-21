@@ -1,23 +1,27 @@
 #include "managers/command_manager.h"
 
-CommandManager::CommandManager(AnalogSensors& sensors, SDLogger& sdLogger, ConfigStorage& configStorage)
-    : sensors(sensors), sdLogger(sdLogger), configStorage(configStorage) {
-    enableAnalogSensors = true;
-    enableSDLogging = false;
-    enableSerialOutput = true;
+CommandManager::CommandManager(AnalogSensors& sensors) : sensors(sensors) {
 }
 
-void CommandManager::begin() {
-    // Cargar estado de módulos desde la configuración
-    enableAnalogSensors = configStorage.loadModuleState("analogSensors", true);
-    enableSDLogging = configStorage.loadModuleState("sdLogging", false);
-    enableSerialOutput = configStorage.loadModuleState("serialOutput", true);
+void CommandManager::begin() {    
+    // Inicializar EEPROM
+    if (!EEPROMManager::begin()) {
+        LOG_ERROR("CMD", "Error al inicializar EEPROM");
+        return;
+    }
     
-    Serial.println("Sistema de comandos inicializado");
-    Serial.println("Escriba 'help' para ver comandos disponibles");
+    LOG_INFO("CMD", "Sistema de calibración inicializado");
+    LOG_INFO("CMD", "Escriba 'help' para ver comandos disponibles");
+    
+    // Cargar calibraciones guardadas automáticamente
+    loadCalibrationFromEEPROM();
 }
 
 void CommandManager::update() {
+    // Actualizar sensores
+    sensors.update();
+    
+    // Procesar comandos
     if (Serial.available() > 0) {
         String command = Serial.readStringUntil('\n');
         command.trim();
@@ -25,106 +29,115 @@ void CommandManager::update() {
     }
 }
 
+// ====================== DEFINICIÓN DE COMANDOS ======================
 void CommandManager::processCommand(String command) {
+// ************ COMANDOS DE CALIBRACION ************
     // Comando para calibrar pH
     if (command.startsWith("cal_ph")) {
-        if (!enableAnalogSensors) {
-            Serial.println("Error: Los sensores analógicos están deshabilitados");
-            return;
-        }
-        
         float knownPH = command.substring(7).toFloat();
-        int rawValue = sensors.readRawPH();
-        sensors.calibratePH(knownPH, rawValue);
-        Serial.print("pH calibrado a ");
-        Serial.print(knownPH);
-        Serial.print(" (valor crudo: ");
-        Serial.print(rawValue);
-        Serial.println(")");
-        
-        // Guardar calibración
-        if (sensors.saveCalibration(configStorage)) {
-            Serial.println("Calibración guardada en memoria");
-        }
+        int rawValue = sensors.calibrateCurrentPH(knownPH);
+
+        String msg = "pH calibrado a " + String(knownPH) + " (en el valor crudo: " + String(rawValue) + ")";
+        LOG_INFO("CMD", msg);
+        Serial.println(msg);  // También mostrar en serial para respuesta inmediata
     }
     
     // Comando para calibrar DO
     else if (command.startsWith("cal_do")) {
-        if (!enableAnalogSensors) {
-            Serial.println("Error: Los sensores analógicos están deshabilitados");
-            return;
-        }
-        
         float knownDO = command.substring(7).toFloat();
-        int rawValue = sensors.readRawDO();
-        sensors.calibrateDO(knownDO, rawValue);
-        Serial.print("Oxígeno disuelto calibrado a ");
-        Serial.print(knownDO);
-        Serial.print(" mg/L (valor crudo: ");
-        Serial.print(rawValue);
-        Serial.println(")");
+        int rawValue = sensors.calibrateCurrentDO(knownDO);
         
-        // Guardar calibración
-        if (sensors.saveCalibration(configStorage)) {
-            Serial.println("Calibración guardada en memoria");
-        }
+        String msg = "Oxígeno disuelto calibrado a " + String(knownDO) + " mg/L (valor crudo: " + String(rawValue) + ")";
+        LOG_INFO("CMD", msg);
+        Serial.println(msg);
     }
     
     // Comando para calibrar EC
     else if (command.startsWith("cal_ec")) {
-        if (!enableAnalogSensors) {
-            Serial.println("Error: Los sensores analógicos están deshabilitados");
-            return;
-        }
-        
         float knownEC = command.substring(7).toFloat();
-        int rawValue = sensors.readRawEC();
-        sensors.calibrateEC(knownEC, rawValue);
-        Serial.print("Conductividad calibrada a ");
-        Serial.print(knownEC);
-        Serial.print(" μS/cm (valor crudo: ");
-        Serial.print(rawValue);
-        Serial.println(")");
+        int rawValue = sensors.calibrateCurrentEC(knownEC);
         
-        // Guardar calibración
-        if (sensors.saveCalibration(configStorage)) {
-            Serial.println("Calibración guardada en memoria");
-        }
+        String msg = "Conductividad calibrada a " + String(knownEC) + " μS/cm (valor crudo: " + String(rawValue) + ")";
+        LOG_INFO("CMD", msg);
+        Serial.println(msg);
     }
     
-    // Comandos para habilitar/deshabilitar módulos
-    else if (command == "enable_analog") {
-        setAnalogEnabled(true);
-        Serial.println("Sensores analógicos habilitados");
-    }
-    else if (command == "disable_analog") {
-        setAnalogEnabled(false);
-        Serial.println("Sensores analógicos deshabilitados");
-    }
-    else if (command == "enable_sd") {
-        setSDLoggingEnabled(true);
-        Serial.println("Logging SD habilitado");
-    }
-    else if (command == "disable_sd") {
-        setSDLoggingEnabled(false);
-        Serial.println("Logging SD deshabilitado");
-    }
-    else if (command == "enable_serial") {
-        setSerialOutputEnabled(true);
-        Serial.println("Salida serial habilitada");
-    }
-    else if (command == "disable_serial") {
-        setSerialOutputEnabled(false);
-        Serial.println("Salida serial deshabilitada (excepto comandos)");
+// ************ COMANDOS CALIBRACION MANUAL ************
+    // Comandos adicionales para setear offset y slope directamente
+    else if (command.startsWith("set_ph_offset")) {
+        float offset = command.substring(14).toFloat();
+        float currentSlope = sensors.phSlope;
+        sensors.setPhCalibration(offset, currentSlope);
+        
+        String msg = "pH offset seteado a: " + String(offset, 4);
+        LOG_INFO("CMD", msg);
+        Serial.println(msg);
     }
     
-    // Comando de reset
-    else if (command == "reset_config") {
-        if (configStorage.clearAllSettings()) {
-            Serial.println("Configuración restablecida a valores predeterminados");
-        }
+    else if (command.startsWith("set_ph_slope")) {
+        float slope = command.substring(13).toFloat();
+        float currentOffset = sensors.phOffset;
+        sensors.setPhCalibration(currentOffset, slope);
+        
+        String msg = "pH slope seteado a: " + String(slope, 4);
+        LOG_INFO("CMD", msg);
+        Serial.println(msg);
     }
     
+    else if (command.startsWith("set_do_offset")) {
+        float offset = command.substring(14).toFloat();
+        float currentSlope = sensors.doSlope;
+        sensors.setDoCalibration(offset, currentSlope);
+        
+        String msg = "DO offset seteado a: " + String(offset, 4);
+        LOG_INFO("CMD", msg);
+        Serial.println(msg);
+    }
+    
+    else if (command.startsWith("set_do_slope")) {
+        float slope = command.substring(13).toFloat();
+        float currentOffset = sensors.doOffset;
+        sensors.setDoCalibration(currentOffset, slope);
+        
+        String msg = "DO slope seteado a: " + String(slope, 4);
+        LOG_INFO("CMD", msg);
+        Serial.println(msg);
+    }
+    
+    else if (command.startsWith("set_ec_offset")) {
+        float offset = command.substring(14).toFloat();
+        float currentSlope = sensors.ecSlope;
+        float currentK = sensors.ecK;
+        sensors.setEcCalibration(offset, currentSlope, currentK);
+        
+        String msg = "EC offset seteado a: " + String(offset, 4);
+        LOG_INFO("CMD", msg);
+        Serial.println(msg);
+    }
+    
+    else if (command.startsWith("set_ec_slope")) {
+        float slope = command.substring(13).toFloat();
+        float currentOffset = sensors.ecOffset;
+        float currentK = sensors.ecK;
+        sensors.setEcCalibration(currentOffset, slope, currentK);
+        
+        String msg = "EC slope seteado a: " + String(slope, 4);
+        LOG_INFO("CMD", msg);
+        Serial.println(msg);
+    }
+
+    else if (command.startsWith("set_ec_k")) {
+        float k = command.substring(9).toFloat();
+        float currentOffset = sensors.ecOffset;
+        float currentSlope = sensors.ecSlope;
+        sensors.setEcCalibration(currentOffset, currentSlope, k);
+        
+        String msg = "EC constante K seteada a: " + String(k, 4);
+        LOG_INFO("CMD", msg);
+        Serial.println(msg);
+    }
+
+// ************ COMANDOS COMUNES ************
     // Comando para mostrar datos
     else if (command == "show_data") {
         displaySensorData();
@@ -134,59 +147,36 @@ void CommandManager::processCommand(String command) {
     else if (command == "help") {
         displayHelp();
     }
-}
 
-void CommandManager::setAnalogEnabled(bool enabled) {
-    enableAnalogSensors = enabled;
-    configStorage.saveModuleState("analogSensors", enabled);
-}
-
-void CommandManager::setSDLoggingEnabled(bool enabled) {
-    enableSDLogging = enabled;
-    configStorage.saveModuleState("sdLogging", enabled);
-}
-
-void CommandManager::setSerialOutputEnabled(bool enabled) {
-    enableSerialOutput = enabled;
-    configStorage.saveModuleState("serialOutput", enabled);
-}
-
-void CommandManager::displayHelp() {
-    Serial.println("\nComandos disponibles:");
-    Serial.println("  cal_ph X     - Calibrar sensor de pH con valor conocido X");
-    Serial.println("  cal_do X     - Calibrar sensor de oxígeno disuelto con valor conocido X (mg/L)");
-    Serial.println("  cal_ec X     - Calibrar sensor de conductividad con valor conocido X (μS/cm)");
-    Serial.println("  enable_analog - Habilitar sensores analógicos");
-    Serial.println("  disable_analog - Deshabilitar sensores analógicos");
-    Serial.println("  enable_sd     - Habilitar registro en SD");
-    Serial.println("  disable_sd    - Deshabilitar registro en SD");
-    Serial.println("  enable_serial - Habilitar salida serial de datos");
-    Serial.println("  disable_serial - Deshabilitar salida serial de datos");
-    Serial.println("  reset_config  - Restablecer toda la configuración");
-    Serial.println("  show_data     - Mostrar lecturas actuales de sensores");
-    Serial.println("  help          - Mostrar esta ayuda\n");
-}
-
-void CommandManager::displaySensorData() {
-    if (!enableAnalogSensors) {
-        Serial.println("Los sensores analógicos están deshabilitados");
-        return;
+    else if (command == "show_cal") {
+        displayCalibrationData();
     }
-    
+
+    // Comando no reconocido
+    else {
+        String msg = "Comando no reconocido: '" + command + "'. Escriba 'help' para ver comandos disponibles.";
+        LOG_WARN("CMD", msg);
+        Serial.println(msg);
+    }
+}
+
+// ====================== MENSAJE SENSORES ANALOGOS ======================
+// ====================== calibraciones y datos ======================
+void CommandManager::displaySensorData() {
     // Leer valores crudos
-    int phRaw = sensors.readRawPH();
-    int doRaw = sensors.readRawDO();
-    int ecRaw = sensors.readRawEC();
+    int phRaw = sensors.lastRawPH;
+    int doRaw = sensors.lastRawDO;
+    int ecRaw = sensors.lastRawEC;
     
     // Leer valores convertidos
-    float ph = sensors.getLastPH();
-    float dissolvedOxygen = sensors.getLastDO();
-    float conductivity = sensors.getLastEC();
+    float ph = sensors.lastPH;
+    float dissolvedOxygen = sensors.lastDO;
+    float conductivity = sensors.lastEC;
     
     // Mostrar datos
-    Serial.println("----------------------------------------");
-    Serial.println("       LECTURAS DE SENSORES");
-    Serial.println("----------------------------------------");
+    Serial.println("========================================");
+    Serial.println("         LECTURAS DE SENSORES");
+    Serial.println("========================================");
     Serial.print("pH: ");
     Serial.print(ph, 2);
     Serial.print(" (raw: ");
@@ -204,5 +194,63 @@ void CommandManager::displaySensorData() {
     Serial.print(" μS/cm (raw: ");
     Serial.print(ecRaw);
     Serial.println(")");
-    Serial.println("----------------------------------------");
+    Serial.println("========================================");
+    
+    String logMsg = "Datos mostrados - pH: " + String(ph, 2) + 
+                   ", DO: " + String(dissolvedOxygen, 2) + 
+                   ", EC: " + String(conductivity, 0);
+    LOG_DEBUG("CMD", logMsg);
+}
+
+void CommandManager::displayCalibrationData() {
+    Serial.println("\n========== VALORES DE CALIBRACIÓN ACTUALES ==========");
+    
+    Serial.println("pH:");
+    Serial.print("  Offset: "); Serial.println(sensors.phOffset, 4);
+    Serial.print("  Slope:  "); Serial.println(sensors.phSlope, 4);
+    
+    Serial.println("Oxígeno Disuelto (DO):");
+    Serial.print("  Offset: "); Serial.println(sensors.doOffset, 4);
+    Serial.print("  Slope:  "); Serial.println(sensors.doSlope, 4);
+    
+    Serial.println("Conductividad Eléctrica (EC):");
+    Serial.print("  Offset: "); Serial.println(sensors.ecOffset, 4);
+    Serial.print("  Slope:  "); Serial.println(sensors.ecSlope, 4);
+    Serial.print("  K:      "); Serial.println(sensors.ecK, 4);
+
+    Serial.println("=====================================================");
+    
+    Serial.println("\nFórmulas aplicadas:");
+    Serial.println("pH = 7.0 + ((voltaje - 2.5) / slope) + offset");
+    Serial.println("DO = voltaje * slope + offset");
+    Serial.println("EC = voltaje * K * slope + offset");
+    Serial.println("=====================================================\n");
+    
+    LOG_DEBUG("CMD", "Valores de calibración mostrados");
+}
+
+// ====================== MENSAJE DE AYUDA ======================
+void CommandManager::displayHelp() {
+    Serial.println("\n=================== COMANDOS DISPONIBLES ===================");
+    Serial.println("CALIBRACIÓN: \t (Toma lectura y las setea al valor ingresado)");
+    Serial.println("  cal_ph X     - Calibrar sensor de pH con valor conocido X");
+    Serial.println("  cal_do X     - Calibrar sensor de oxígeno disuelto con valor conocido X (mg/L)");
+    Serial.println("  cal_ec X     - Calibrar sensor de conductividad con valor conocido X (μS/cm)");
+    Serial.println("");
+    Serial.println("CALIBRACIÓN AVANZADA: \t (Setear offset y slope directamente con el valor)");
+    Serial.println("  set_ph_offset X   - Setear offset de pH a X");
+    Serial.println("  set_ph_slope X    - Setear slope de pH a X");
+    Serial.println("  set_do_offset X   - Setear offset de DO a X");
+    Serial.println("  set_do_slope X    - Setear slope de DO a X");
+    Serial.println("  set_ec_offset X   - Setear offset de EC a X");
+    Serial.println("  set_ec_slope X    - Setear slope de EC a X");
+    Serial.println("  set_ec_k X        - Setear constante K de EC a X");
+    Serial.println("");
+    Serial.println("DATOS:");
+    Serial.println("  show_data    - Mostrar lecturas actuales de sensores");
+    Serial.println("  show         - Mostrar variables de calibracion almacenadas");
+    Serial.println("  help         - Mostrar esta ayuda");
+    Serial.println("==========================================================\n");
+    
+    LOG_DEBUG("CMD", "Ayuda mostrada");
 }

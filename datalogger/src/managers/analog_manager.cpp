@@ -7,7 +7,7 @@ AnalogSensors* AnalogManager::sensors = nullptr;
 bool AnalogManager::enabled = false;
 unsigned long AnalogManager::lastUpdateTime = 0;
 
-bool AnalogManager::init(ConfigStorage &storage) {
+bool AnalogManager::init() {
     LOG_INFO("ANALOG", "Inicializando sensores analógicos");
     
     // Crear instancia de sensores
@@ -15,7 +15,7 @@ bool AnalogManager::init(ConfigStorage &storage) {
     sensors->begin();
     
     // Cargar calibraciones guardadas
-    if (sensors->loadCalibration(storage)) {
+    if (sensors->loadCalibration()) {
         LOG_INFO("ANALOG", "Calibraciones cargadas correctamente");
     } else {
         LOG_INFO("ANALOG", "Usando valores de calibración predeterminados");

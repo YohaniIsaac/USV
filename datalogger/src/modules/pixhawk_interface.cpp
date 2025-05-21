@@ -1,4 +1,4 @@
-#include "pixhawk_interface.h"
+#include "modules/pixhawk_interface.h"
 
 PixhawkInterface::PixhawkInterface() : pixhawkSerial(1) {  // Usar UART1 en ESP32
     latitude = 0.0;

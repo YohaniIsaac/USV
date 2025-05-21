@@ -2,12 +2,11 @@
 #define ANALOG_MANAGER_H
 
 #include "modules/analog_sensors.h"
-#include "modules/config_storage.h"
 
 class AnalogManager {
 public:
     // Inicialización en setup()
-    static bool init(ConfigStorage &storage);
+    static bool init();
     
     // Actualización en loop()
     static void update();
@@ -20,7 +19,7 @@ public:
     static void calibratePH(float knownPH);
     static void calibrateDO(float knownDO);
     static void calibrateEC(float knownEC);
-    static bool saveCalibration(ConfigStorage &storage);
+    static bool saveCalibration( &storage);
     
     // Métodos para diagnóstico
     static void displayData();

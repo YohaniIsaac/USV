@@ -1,4 +1,4 @@
-#include "sonar_sensor.h"
+#include "modules/sonar_sensor.h"
 
 SonarSensor::SonarSensor() : sonarSerial(2) {  // Usar UART2 en ESP32
     depth = 0.0;

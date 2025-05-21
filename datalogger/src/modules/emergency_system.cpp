@@ -1,4 +1,4 @@
-#include "emergency_system.h"
+#include "modules/emergency_system.h"
 
 EmergencySystem::EmergencySystem() : gpsSerial(1) {  // Usar UART1 en ESP32 (compartido con Pixhawk)
     emergencyActive = false;
