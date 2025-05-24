@@ -45,6 +45,11 @@ public:
     void setPhCalibration(float offset, float slope);
     void setDoCalibration(float offset, float slope);
     void setEcCalibration(float offset, float slope, float k);
+
+    // Gestión de eeprom
+    bool loadCalibrationFromEEPROM();
+    bool saveCalibrationToEEPROM();
+    void resetCalibrationToDefaults();
     
     // Inicializar con valores predeterminados
     void initDefaultCalibration();
@@ -67,7 +72,6 @@ private:
     // Funciones auxiliares
     void performReadings();
     int getAverageReading(int readings[]);
-    void calculateValues();
 };
 
 #endif // ANALOG_SENSORS_H

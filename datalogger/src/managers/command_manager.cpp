@@ -1,4 +1,6 @@
 #include "managers/command_manager.h"
+#include "managers/eeprom_manager.h"
+
 
 CommandManager::CommandManager(AnalogSensors& sensors) : sensors(sensors) {
 }
@@ -8,19 +10,15 @@ void CommandManager::begin() {
     if (!EEPROMManager::begin()) {
         LOG_ERROR("CMD", "Error al inicializar EEPROM");
         return;
+    } else {
+        LOG_INFO("CMD", "Sistema EEPROM inicializado");
     }
     
     LOG_INFO("CMD", "Sistema de calibración inicializado");
     LOG_INFO("CMD", "Escriba 'help' para ver comandos disponibles");
-    
-    // Cargar calibraciones guardadas automáticamente
-    loadCalibrationFromEEPROM();
 }
 
-void CommandManager::update() {
-    // Actualizar sensores
-    sensors.update();
-    
+void CommandManager::update() {   
     // Procesar comandos
     if (Serial.available() > 0) {
         String command = Serial.readStringUntil('\n');
@@ -63,7 +61,7 @@ void CommandManager::processCommand(String command) {
     }
     
 // ************ COMANDOS CALIBRACION MANUAL ************
-    // Comandos adicionales para setear offset y slope directamente
+// Comandos adicionales para setear offset y slope directamente
     else if (command.startsWith("set_ph_offset")) {
         float offset = command.substring(14).toFloat();
         float currentSlope = sensors.phSlope;
@@ -135,6 +133,19 @@ void CommandManager::processCommand(String command) {
         String msg = "EC constante K seteada a: " + String(k, 4);
         LOG_INFO("CMD", msg);
         Serial.println(msg);
+    }
+
+// ************ COMANDOS DE GESTIÓN EEPROM ************
+    else if (command == "reset_cal") {
+        sensors.resetCalibrationToDefaults();
+        Serial.println("Calibraciones reiniciadas a valores por defecto y guardadas en EEPROM");
+        LOG_INFO("CMD", "Calibraciones reiniciadas");
+    }
+
+    else if (command == "clear_eeprom") {
+        EEPROMManager::clearAll();
+        Serial.println("EEPROM borrada completamente. Reinicie para cargar valores por defecto.");
+        LOG_INFO("CMD", "EEPROM borrada");
     }
 
 // ************ COMANDOS COMUNES ************
@@ -246,9 +257,13 @@ void CommandManager::displayHelp() {
     Serial.println("  set_ec_slope X    - Setear slope de EC a X");
     Serial.println("  set_ec_k X        - Setear constante K de EC a X");
     Serial.println("");
+    Serial.println("GESTIÓN EEPROM:");
+    Serial.println("  reset_cal    - Reiniciar calibraciones a valores por defecto");
+    Serial.println("  clear_eeprom - Borrar completamente la EEPROM");
+    Serial.println("");
     Serial.println("DATOS:");
     Serial.println("  show_data    - Mostrar lecturas actuales de sensores");
-    Serial.println("  show         - Mostrar variables de calibracion almacenadas");
+    Serial.println("  show_cal     - Mostrar variables de calibracion almacenadas");
     Serial.println("  help         - Mostrar esta ayuda");
     Serial.println("==========================================================\n");
     

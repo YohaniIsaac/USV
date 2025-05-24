@@ -1,4 +1,7 @@
+#include "logger.h"
 #include "modules/analog_sensors.h"
+#include "managers/eeprom_manager.h"
+
 
 AnalogSensors::AnalogSensors(uint8_t phPin, uint8_t doPin, uint8_t ecPin) 
     : phPin(phPin), doPin(doPin), ecPin(ecPin) {
@@ -23,14 +26,21 @@ AnalogSensors::AnalogSensors(uint8_t phPin, uint8_t doPin, uint8_t ecPin)
 }
 
 void AnalogSensors::begin() {
+    // Intentar cargar calibraciones desde EEPROM
+    if (!loadCalibrationFromEEPROM()) {
+        LOG_WARN("ANALOG", "Usando calibraciones por defecto");
+    }
+    
     // Configurar pines como entradas
     pinMode(phPin, INPUT);
     pinMode(doPin, INPUT);
     pinMode(ecPin, INPUT);
     
-    // Configuración específica para ESP32
+    // Configuración específica|| para ESP32
     analogReadResolution(12);  // 12 bits (0-4095)
     analogSetAttenuation(ADC_11db);  // 0-3.3V
+
+    LOG_INFO("ANALOG", "Sensores analógicos inicializados");
 }
 
 // ====================== CALCULAR VALORES Y ACTUALIZAR ======================
@@ -63,11 +73,6 @@ void AnalogSensors::update() {
     lastRawDO = getAverageReading(doReadings);
     lastRawEC = getAverageReading(ecReadings);
     
-    // Calcular valores calibrados (necesita calibración)
-    calculateValues();
-}
-
-void AnalogSensors::calculateValues() {
     // Convertir a voltaje
     float phVoltage = (lastRawPH  * 3.3) / 4095.0;
     float doVoltage = (lastRawDO * 3.3) / 4095.0;
@@ -78,7 +83,6 @@ void AnalogSensors::calculateValues() {
 
     // pH = pH_neutro + (ΔVoltaje / Pendiente) + Offset
     // phSlope = (Voltaje_pH4 - Voltaje_pH7) / (4 - 7) = ΔV / ΔpH
-
     lastDO = doVoltage * doSlope + doOffset;
     lastEC = ecVoltage * ecK * ecSlope + ecOffset;
 }
@@ -98,6 +102,9 @@ int AnalogSensors::calibrateCurrentPH(float shouldBePH) {
     
     // Ajustar offset para que la lectura actual sea el valor conocido
     phOffset = shouldBePH - currentCalculated;
+
+    // Guardar en EEPROM
+    saveCalibrationToEEPROM();
     
     return currentRaw;
 }
@@ -116,6 +123,9 @@ int AnalogSensors::calibrateCurrentDO(float shouldBeDO) {
     // Ajustar offset para que la lectura actual sea el valor conocido
     doOffset = shouldBeDO - currentCalculated;
 
+    // Guardar en EEPROM
+    saveCalibrationToEEPROM();
+
     return currentRaw;
 }
 
@@ -133,6 +143,9 @@ int AnalogSensors::calibrateCurrentEC(float shouldBeEC) {
     // Ajustar offset para que la lectura actual sea el valor conocido
     ecOffset = shouldBeEC - currentCalculated;
 
+    // Guardar en EEPROM
+    saveCalibrationToEEPROM();
+
     return currentRaw;
 }
 
@@ -140,17 +153,71 @@ int AnalogSensors::calibrateCurrentEC(float shouldBeEC) {
 void AnalogSensors::setPhCalibration(float offset, float slope) {
     phOffset = offset;
     phSlope = slope;
+
+    // Guardar en EEPROM
+    saveCalibrationToEEPROM();
 }
 
 void AnalogSensors::setDoCalibration(float offset, float slope) {
     doOffset = offset;
     doSlope = slope;
+
+    // Guardar automáticamente en EEPROM
+    saveCalibrationToEEPROM();
 }
 
 void AnalogSensors::setEcCalibration(float offset, float slope, float k) {
     ecOffset = offset;
     ecSlope = slope;
     ecK = k;
+
+    // Guardar automáticamente en EEPROM
+    saveCalibrationToEEPROM();
+}
+
+// ====================== GESTIÓN DE EEPROM ======================
+
+bool AnalogSensors::loadCalibrationFromEEPROM() {
+    if (!EEPROMManager::hasValidData()) {
+        LOG_INFO("ANALOG", "No hay calibraciones válidas en EEPROM");
+        return false;
+    }
+    
+    bool success = EEPROMManager::loadCalibrations(
+        phOffset, phSlope,
+        doOffset, doSlope,
+        ecOffset, ecSlope, ecK
+    );
+    
+    if (success) {
+        LOG_INFO("ANALOG", "Calibraciones cargadas desde EEPROM");
+    } else {
+        LOG_ERROR("ANALOG", "Error al cargar calibraciones de EEPROM");
+    }
+    
+    return success;
+}
+
+bool AnalogSensors::saveCalibrationToEEPROM() {
+    bool success = EEPROMManager::saveCalibrations(
+        phOffset, phSlope,
+        doOffset, doSlope,
+        ecOffset, ecSlope, ecK
+    );
+    
+    if (success) {
+        LOG_INFO("ANALOG", "Calibraciones guardadas en EEPROM");
+    } else {
+        LOG_ERROR("ANALOG", "Error al guardar calibraciones en EEPROM");
+    }
+    
+    return success;
+}
+
+void AnalogSensors::resetCalibrationToDefaults() {
+    initDefaultCalibration();
+    saveCalibrationToEEPROM();
+    LOG_INFO("ANALOG", "Calibraciones reiniciadas a valores por defecto");
 }
 
 // ====================== Funciones extras ======================

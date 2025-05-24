@@ -1,13 +1,16 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+// // Define si usar LOGGER
+// #define USE_LOGGER 1
+
 // Cantidad de lecturas para los sensores
 #define NUM_READINGS 10
 
 // Pines para los sensores analógicos
-#define ANALOG_SENSOR1_PIN 34
-#define ANALOG_SENSOR2_PIN 35
-#define ANALOG_SENSOR3_PIN 36
+#define ANALOG_SENSOR1_PIN 4
+#define ANALOG_SENSOR2_PIN 5
+#define ANALOG_SENSOR3_PIN 6
 
 // Pines para la comunicación con el sensor sonar (UART)
 #define SONAR_RX_PIN 16
