@@ -3,10 +3,15 @@
 #include "logger.h"
 #include "modules/analog_sensors.h"
 #include "managers/command_manager.h"
+#include "modules/sd_logger.h"
 
 // Instancia de configuración PROBADO Y CONFIRMADO
-AnalogSensors sensors(ANALOG_SENSOR1_PIN, ANALOG_SENSOR2_PIN, ANALOG_SENSOR3_PIN);
+AnalogSensors sensors;
 CommandManager commandManager(sensors);
+SDLogger micro_sd;
+
+// Tests (borrar)
+bool one;
 
 void init_logger(){
 #if USE_LOGGER
@@ -34,8 +39,13 @@ void setup() {
     // Inicar los sensores
     sensors.begin();
 
+    // Iniciar SD
+    micro_sd.begin();
+    micro_sd.writeHeader("Ph, PH crudo");
+
     LOG_INFO("MAIN", "Configuración completada");
     LOG_INFO("MAIN", "Escriba 'help' para ver comandos disponibles");
+    one = true;
 }
 
 void loop() {
@@ -43,5 +53,14 @@ void loop() {
     sensors.update();
     // Procesar comandos seriales (siempre activo)
     commandManager.update();
+    if (one) {
+        LOG_INFO("MAIN", "entrando al if de primera escritura");
+        String enviar = String(sensors.lastPH) + "," + String(sensors.lastRawPH);
+        micro_sd.writeData(enviar);
+        micro_sd.update();
+        LOG_INFO("MAIN", "SD updated");
+        one = false;
+    }    
+    delay(3000);
 
 }

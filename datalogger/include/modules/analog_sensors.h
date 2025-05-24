@@ -9,16 +9,7 @@
 class AnalogSensors {
 public:
     // Constructor
-    AnalogSensors(uint8_t phPin, uint8_t doPin, uint8_t ecPin);
-
-    // Factores de calibración
-    float phOffset;
-    float phSlope;
-    float doOffset;
-    float doSlope;
-    float ecOffset;
-    float ecSlope;
-    float ecK;
+    AnalogSensors();
 
     // Últimos valores calculados
     float lastPH;
@@ -29,6 +20,15 @@ public:
     int lastRawPH;
     int lastRawDO;
     int lastRawEC;
+
+    // Factores de calibración
+    float phOffset;
+    float phSlope;
+    float doOffset;
+    float doSlope;
+    float ecOffset;
+    float ecSlope;
+    float ecK;
     
     // Inicializar los sensores
     void begin();
@@ -58,11 +58,6 @@ public:
     String getCSVData() const;
     
 private:
-    // Pines de conexión
-    uint8_t phPin;
-    uint8_t doPin;
-    uint8_t ecPin;
-    
     // Variables para promediar lecturas
     int phReadings[NUM_READINGS];
     int doReadings[NUM_READINGS];

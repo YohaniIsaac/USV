@@ -1,16 +1,23 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-// // Define si usar LOGGER
-// #define USE_LOGGER 1
 
 // Cantidad de lecturas para los sensores
 #define NUM_READINGS 10
 
 // Pines para los sensores analógicos
-#define ANALOG_SENSOR1_PIN 4
-#define ANALOG_SENSOR2_PIN 5
-#define ANALOG_SENSOR3_PIN 6
+#define ANALOG_SENSOR_PH 4
+#define ANALOG_SENSOR_DO 5
+#define ANALOG_SENSOR_EC 6
+
+// Pines para la tarjeta SD (SPI)
+#define SD_CS_PIN 10
+#define SD_MOSI_PIN 11
+#define SD_MISO_PIN 13
+#define SD_SCK_PIN 12
+
+
+
 
 // Pines para la comunicación con el sensor sonar (UART)
 #define SONAR_RX_PIN 16
@@ -19,12 +26,6 @@
 // Pines para la comunicación con la Pixhawk (UART)
 #define PIXHAWK_RX_PIN 14
 #define PIXHAWK_TX_PIN 15
-
-// Pines para la tarjeta SD (SPI)
-#define SD_CS_PIN 5
-#define SD_MOSI_PIN 23
-#define SD_MISO_PIN 19
-#define SD_SCK_PIN 18
 
 // Pin para detección de emergencia
 #define EMERGENCY_PIN 4

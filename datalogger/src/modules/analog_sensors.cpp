@@ -3,8 +3,7 @@
 #include "managers/eeprom_manager.h"
 
 
-AnalogSensors::AnalogSensors(uint8_t phPin, uint8_t doPin, uint8_t ecPin) 
-    : phPin(phPin), doPin(doPin), ecPin(ecPin) {
+AnalogSensors::AnalogSensors() {
     
     // Inicializar con valores predeterminados
     initDefaultCalibration();
@@ -30,11 +29,11 @@ void AnalogSensors::begin() {
     if (!loadCalibrationFromEEPROM()) {
         LOG_WARN("ANALOG", "Usando calibraciones por defecto");
     }
-    
+
     // Configurar pines como entradas
-    pinMode(phPin, INPUT);
-    pinMode(doPin, INPUT);
-    pinMode(ecPin, INPUT);
+    pinMode(ANALOG_SENSOR_PH, INPUT);
+    pinMode(ANALOG_SENSOR_DO, INPUT);
+    pinMode(ANALOG_SENSOR_EC, INPUT);
     
     // Configuración específica|| para ESP32
     analogReadResolution(12);  // 12 bits (0-4095)
@@ -48,13 +47,13 @@ void AnalogSensors::performReadings() {
     // Realizar NUM_READINGS lecturas
     // Secuencia: pH -> DO -> EC -> pH -> DO -> EC ...
     for (int i = 0; i < NUM_READINGS; i++) {
-        phReadings[i] = analogRead(phPin);
+        phReadings[i] = analogRead(ANALOG_SENSOR_PH);
         delayMicroseconds(100);  // Pequeña pausa entre lecturas
         
-        doReadings[i] = analogRead(doPin);
+        doReadings[i] = analogRead(ANALOG_SENSOR_DO);
         delayMicroseconds(100);
         
-        ecReadings[i] = analogRead(ecPin);
+        ecReadings[i] = analogRead(ANALOG_SENSOR_EC);
         delayMicroseconds(100);
         
         // Pausa entre ciclos de lectura

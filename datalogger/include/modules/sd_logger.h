@@ -17,7 +17,12 @@ private:
     File dataFile;
     bool sdInitialized;
     unsigned long lastWriteTime;
+    String dataHeader;                  // Header del archivo actual
+    bool headerIsWritten;               // Header escrito
     String dataBuffer;
+    String currentFilename;             // Nombre actual del archivo
+    
+    void generateUniqueFilename();      // Generar nombres únicos
 };
 
 #endif // SD_LOGGER_H
