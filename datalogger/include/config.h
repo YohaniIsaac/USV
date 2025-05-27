@@ -16,31 +16,25 @@
 #define SD_MISO_PIN 13
 #define SD_SCK_PIN 12
 
+// Pines para el sistema de emergencia
+#define EMERGENCY_PIN 7            // Pin para detección de emergencia (normalmente HIGH)
+// GPS
+#define EMERGENCY_GPS_RX_PIN 18    // RX del GPS de respaldo n18
+#define EMERGENCY_GPS_TX_PIN 17    // TX del GPS de respaldo 17
+// Pines SPI para el NRF24L01
+#define EMERGENCY_NRF_MOSI_PIN 35  // MOSI del NRF
+#define EMERGENCY_NRF_SCK_PIN 36   // Clock del NRF
+#define EMERGENCY_NRF_MISO_PIN 37  // MISO del NRF
+#define EMERGENCY_NRF_CS_PIN 38    // Chip Select (CSN) del NRF
+#define EMERGENCY_NRF_CE_PIN 39    // Chip Enable del NRF (necesario para NRF24L01)
 
 
+#define NRF_CHANNEL 76             // Canal RF (0-125)
 
-// Pines para la comunicación con el sensor sonar (UART)
-#define SONAR_RX_PIN 16
-#define SONAR_TX_PIN 17
-
-// Pines para la comunicación con la Pixhawk (UART)
-#define PIXHAWK_RX_PIN 14
-#define PIXHAWK_TX_PIN 15
-
-// Pin para detección de emergencia
-#define EMERGENCY_PIN 4
-
-// Pines para el GPS de respaldo
-#define GPS_RX_PIN 12
-#define GPS_TX_PIN 13
-#define GPS_POWER_PIN 27  // Pin para encender/apagar el GPS
 
 // Configuración de tasas de muestreo (en milisegundos)
-#define ANALOG_SAMPLING_RATE 100    // 10 Hz
-#define SONAR_SAMPLING_RATE 200     // 5 Hz
-#define PIXHAWK_SAMPLING_RATE 100   // 10 Hz
 #define SD_WRITE_RATE 1000          // 1 Hz
-#define EMERGENCY_CHECK_RATE 50     // 20 Hz
+#define EMERGENCY_CHECK_RATE 0.02     // 20 Hz
 
 // Nombre del archivo de registro
 #define LOG_FILENAME "/data_log.csv"
