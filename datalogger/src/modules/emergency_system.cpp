@@ -61,30 +61,25 @@ void EmergencySystem::update() {
     // Verificar estado
     if (currentTime - lastCheckTime >= EMERGENCY_CHECK_RATE) {
         LOG_INFO("EMERGENCY", "Verificando estado del pin");
-        // LOG_DEBUG("EMERGENCY", "Leyendo datos desde el GPS");
-        // activateEmergency();
-        if (emergencyActive){
-            readGPSData();
-        }
         checkEmergencyPin();
         lastCheckTime = currentTime;
     }
     
-    // // Si está en emergencia, leer GPS y enviar datos
-    // if (emergencyActive) {
+    // Si está en emergencia, leer GPS y enviar datos
+    if (emergencyActive) {
         // Leer GPS continuamente
-        // readGPSData();
+        readGPSData();
         
-    //     // Enviar datos cada 2 segundos si tenemos ubicación válida
-    //     if (currentTime - lastTransmitTime >= 2000) {
-    //         if (currentLocation.valid) {
-    //             sendNRFPacket();
-    //         } else {
-    //             LOG_WARN("EMERGENCY", "Esperando señal GPS válida...");
-    //         }
-    //         lastTransmitTime = currentTime;
-    //     }
-    // }
+        // Enviar datos cada 5 segundos si tenemos ubicación válida
+        if (currentTime - lastTransmitTime >= 5000) {
+            if (currentLocation.valid) {
+                sendNRFPacket();
+            } else {
+                LOG_WARN("EMERGENCY", "Esperando señal GPS válida...");
+            }
+            lastTransmitTime = currentTime;
+        }
+    }
 }
 
 void EmergencySystem::checkEmergencyPin() {
@@ -92,12 +87,12 @@ void EmergencySystem::checkEmergencyPin() {
     LOG_DEBUG("EMERGENCY", "Estado del pin " + String(pinState));
     
     // Si el pin está en LOW y no estábamos en emergencia
-    if (pinState && !emergencyActive) {
+    if (!pinState && !emergencyActive) {
         LOG_DEBUG("EMERGENCY", "Activando emergencia");
         activateEmergency();
     }
     // Si el pin está en HIGH y estábamos en emergencia
-    else if (!pinState && emergencyActive) {
+    else if (pinState && emergencyActive) {
         LOG_DEBUG("EMERGENCY", "Desactivando emergenica");
         deactivateEmergency();
     }
@@ -108,11 +103,11 @@ void EmergencySystem::activateEmergency() {
     emergencyActive = true;
     
     /* Inicializar GPS si no está inicializado */
-    // if (!gpsInitialized) {
-    //     gpsSerial.begin(9600, SERIAL_8N1, EMERGENCY_GPS_RX_PIN, EMERGENCY_GPS_TX_PIN);
-    //     gpsInitialized = true;
-    //     LOG_DEBUG("EMERGENCY", "GPS de respaldo inicializado");
-    // }
+    if (!gpsInitialized) {
+        gpsSerial.begin(9600, SERIAL_8N1, EMERGENCY_GPS_RX_PIN, EMERGENCY_GPS_TX_PIN);
+        gpsInitialized = true;
+        LOG_DEBUG("EMERGENCY", "GPS de respaldo inicializado");
+    }
     
     /* Inicializar NRF */ 
     if (!initializeNRF()) {
@@ -131,16 +126,16 @@ void EmergencySystem::deactivateEmergency() {
         gpsInitialized = false;
     }
     
-    // // Apagar NRF
-    // if (nrfInitialized && radio) {
-    //     LOG_DEBUG("EMERGENCY", "Apagando NRF");
-    //     radio->powerDown();
-    //     delete radio;
-    //     delete hspi;
-    //     radio = nullptr;
-    //     hspi = nullptr;
-    //     nrfInitialized = false;
-    // }
+    // Apagar NRF
+    if (nrfInitialized && radio) {
+        LOG_DEBUG("EMERGENCY", "Apagando NRF");
+        radio->powerDown();
+        delete radio;
+        delete hspi;
+        radio = nullptr;
+        hspi = nullptr;
+        nrfInitialized = false;
+    }
 }
 
 void EmergencySystem::readGPSData() {
@@ -223,8 +218,25 @@ void EmergencySystem::sendNRFPacket() {
         LOG_ERROR("EMERGENCY", "NRF no inicializado");
         return;
     }
+
+    // Verificar conexión del chip
+    if (!radio->isChipConnected()) {
+        LOG_ERROR("EMERGENCY", "NRF24L01 no está conectado o no responde");
+        // Intentar reinicializar
+        LOG_INFO("EMERGENCY", "Intentando reinicializar NRF...");
+        nrfInitialized = false;
+        delete radio;
+        delete hspi;
+        radio = nullptr;
+        hspi = nullptr;
+        
+        if (!initializeNRF()) {
+            LOG_ERROR("EMERGENCY", "Falló la reinicialización del NRF");
+            return;
+        }
+    }
+
     LOG_DEBUG("EMERGENCY", "Enviando dato");
-    
     // Preparar paquete de emergencia
     EmergencyPacket packet;
     packet.header = 0xEE;  // Identificador de emergencia
@@ -241,6 +253,10 @@ void EmergencySystem::sendNRFPacket() {
         packet.checksum ^= data[i];
     }
     
+    LOG_DEBUG("EMERGENCY", "Tamaño del paquete: " + String(sizeof(EmergencyPacket)) + " bytes");
+    LOG_DEBUG("EMERGENCY", "Canal: " + String(radio->getChannel()));
+    LOG_DEBUG("EMERGENCY", "Nivel de potencia: " + String(radio->getPALevel()));
+    
     // Enviar paquete
     bool result = radio->write(&packet, sizeof(EmergencyPacket));
     
@@ -251,7 +267,10 @@ void EmergencySystem::sendNRFPacket() {
                   "m Sat:" + String(packet.satellites));
     } else {
         LOG_ERROR("EMERGENCY", "Error al enviar paquete");
-        
+        LOG_ERROR("EMERGENCY", "Detalles del error:");
+        LOG_ERROR("EMERGENCY", "- Chip conectado: " + String(radio->isChipConnected() ? "Sí" : "No"));
+        LOG_ERROR("EMERGENCY", "- Power Amplifier: " + String(radio->isPVariant() ? "PA+LNA" : "Estándar"));
+        LOG_ERROR("EMERGENCY", "- Canal actual: " + String(radio->getChannel()));
         // Verificar si el radio está funcionando
         if (!radio->isChipConnected()) {
             LOG_ERROR("EMERGENCY", "NRF24L01 no responde - reiniciando");
@@ -292,11 +311,11 @@ bool EmergencySystem::initializeNRF() {
     radio->setPALevel(RF24_PA_MAX);           // Usar valor de config.h
     radio->setChannel(NRF_CHANNEL);            // Canal 76
     // Velocidades: 0=1MBPS, 1=2MBPS, 2=250KBPS
-    radio->setDataRate(RF24_250KBPS);          // 250KBPS para mayor alcance
+    radio->setDataRate(RF24_1MBPS);          // 250KBPS para mayor alcance
 
-    radio->setRetries(15, 15);                 // 15 reintentos, 15*250us entre reintentos
+    radio->setRetries(0, 0);                 // 15 reintentos, 15*250us entre reintentos
     radio->setPayloadSize(sizeof(EmergencyPacket)); // Tamaño del paquete
-    radio->setAutoAck(true);                   // Habilitar auto-acknowledgment
+    radio->setAutoAck(false);                   // Habilitar auto-acknowledgment
 
     // CRC: 0=disabled, 1=8bits, 2=16bits
     radio->setCRCLength(RF24_CRC_16);          // CRC de 16 bits
@@ -310,62 +329,4 @@ bool EmergencySystem::initializeNRF() {
     LOG_DEBUG("EMERGENCY", "Canal: " + String(NRF_CHANNEL) + ", DataRate: 250KBPS");
     
     return true;
-}
-
-
-void EmergencySystem::testGPSBaudRates() {
-    uint32_t baudRates[] = {4800, 9600, 19200, 38400, 57600, 115200};
-    int numRates = sizeof(baudRates) / sizeof(baudRates[0]);
-    
-    for (int i = 0; i < numRates; i++) {
-        LOG_INFO("EMERGENCY", "Probando velocidad: " + String(baudRates[i]));
-        
-        // Reiniciar puerto serie con nueva velocidad
-        if (gpsInitialized) {
-            gpsSerial.end();
-        }
-        
-        gpsSerial.begin(baudRates[i], SERIAL_8N1, EMERGENCY_GPS_RX_PIN, EMERGENCY_GPS_TX_PIN);
-        gpsInitialized = true;
-        
-        // Esperar un poco para que se establezca la conexión
-        delay(500);
-        
-        // Leer datos por 10 segundos
-        unsigned long startTime = millis();
-        String testData = "";
-        bool foundValidData = false;
-        
-        while (millis() - startTime < 10000) {
-            while (gpsSerial.available() > 0) {
-                char c = gpsSerial.read();
-                testData += c;
-                
-                // Buscar inicio de sentencia NMEA válida
-                if (testData.indexOf("$GP") != -1 || testData.indexOf("$GN") != -1) {
-                    foundValidData = true;
-                    break;
-                }
-                
-                // Limitar tamaño del buffer de prueba
-                if (testData.length() > 200) {
-                    testData = testData.substring(100);
-                }
-            }
-            
-            if (foundValidData) break;
-            delay(10);
-        }
-        
-        if (foundValidData) {
-            LOG_INFO("EMERGENCY", "¡Datos válidos encontrados a " + String(baudRates[i]) + " baudios!");
-            LOG_DEBUG("EMERGENCY", "Muestra de datos: " + testData.substring(0, 100));
-            // return; // Salir cuando encontremos la velocidad correcta
-        } else {
-            LOG_WARN("EMERGENCY", "Sin datos válidos a " + String(baudRates[i]) + " baudios");
-            LOG_DEBUG("EMERGENCY", "Datos recibidos: " + testData.substring(0, 50));
-        }
-    }
-    
-    LOG_ERROR("EMERGENCY", "No se encontró velocidad válida para el GPS");
 }

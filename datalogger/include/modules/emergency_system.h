@@ -16,7 +16,6 @@ public:
     void begin();
     void update();
     bool isEmergencyActive() { return emergencyActive; }
-    void testGPSBaudRates();
     
 private:
     HardwareSerial gpsSerial;

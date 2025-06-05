@@ -68,7 +68,7 @@ void loop() {
     //     LOG_INFO("MAIN", "SD updated");
     //     one = false;
     // }    
-    delay(5000);
+    delay(10000);
     emergencySystem.update();
     // emergencySystem.testGPSBaudRates();
 
