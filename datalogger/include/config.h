@@ -60,7 +60,8 @@
 /*
  * PIXHAWK INTERFACE
  */
-#define PIXHAWK_RX_PIN 1  // GPIO1 para recibir datos (solo RX)
+#define PIXHAWK_RX_PIN 16  // GPIO1 para recibir datos (solo RX)
+#define PIXHAWK_TX_PIN 15  // GPIO1 para recibir datos (solo RX)
 #define PIXHAWK_BAUD_RATE 57600 // Velocidad de comunicación MAVLink
 
 

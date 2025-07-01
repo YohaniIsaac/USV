@@ -4,8 +4,6 @@
 #include <HardwareSerial.h>
 #include "config.h"
 
-// Pin para recibir datos de la Pixhawk
-#define PIXHAWK_RX_PIN 1    // Usar GPIO1 para recibir datos MAVLink
 
 class PixhawkInterface {
 public:

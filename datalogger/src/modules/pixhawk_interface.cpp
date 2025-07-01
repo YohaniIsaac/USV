@@ -13,7 +13,7 @@ PixhawkInterface::PixhawkInterface() : pixhawkSerial(1) {  // Usar UART1
 void PixhawkInterface::begin() {
     // Configurar UART para comunicación con Pixhawk
     // Usando GPIO1 como RX (solo recepción)
-    pixhawkSerial.begin(57600, SERIAL_8N1, PIXHAWK_RX_PIN, -1);  // -1 = no TX
+    pixhawkSerial.begin(57600, SERIAL_8N1, PIXHAWK_RX_PIN, PIXHAWK_TX_PIN);
     pixhawkSerial.setTimeout(100);  // Timeout de 100ms
     
     LOG_INFO("PIXHAWK", "Interfaz Pixhawk inicializada");

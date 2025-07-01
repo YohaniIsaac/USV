@@ -1,140 +1,164 @@
-// Parser para protocolo propietario del sonar
-// ESP32-S3 + MCP2515 + Sonar con protocolo CAN propietario
+#include <Arduino.h>
+#include "config.h"
+#include "logger.h"
+#include "modules/analog_sensors.h"
+#include "managers/command_manager.h"
+#include "modules/sd_logger.h"
+#include "modules/emergency_system.h"
+#include "modules/sonar_sensor.h"
+#include "modules/pixhawk_interface.h"
 
-#include <SPI.h>
-#include <mcp_can.h>
+// Instancia de configuración PROBADO Y CONFIRMADO
+AnalogSensors sensors;
+CommandManager commandManager(sensors);
+SDLogger micro_sd;
+EmergencySystem emergencySystem;
+SonarSensor sonar;
+PixhawkInterface pixhawk;
 
-#define CAN_CS_PIN 10
-MCP_CAN CAN0(CAN_CS_PIN);
+// Variables de control
+unsigned long lastSonarDisplay = 0;
+unsigned long lastDataLog = 0;
 
-unsigned long lastHeartbeat = 0;
-unsigned long messageCount = 0;
+// pix
+unsigned long lastDisplayTime = 0;
+unsigned long lastLogTime = 0;
 
-void parseDepthData(unsigned char *data, unsigned char len);
-void parseAlternateData(unsigned char *data, unsigned char len);
-void printRawMessage(unsigned long canId, unsigned char len, unsigned char *data);
+// Tests
+bool one;
+
+void init_logger(){
+#if USE_LOGGER
+    // Inicializar logger con nivel predeterminado
+    LogInit(INFO);
+    // Configurar niveles por módulo (opcional)
+    LogSetModuleLevel("EMERGENCY", DEBUG);
+    LogSetModuleLevel("ANALOG", DEBUG);
+    LogSetModuleLevel("SD_LOGGER", DEBUG);
+    LogSetModuleLevel("PIXHAWK", ERROR);
+    LogSetModuleLevel("SONAR", DEBUG);
+    LogSetModuleLevel("PIXHAWK", DEBUG);
+    LOG_INFO("MAIN", "Sistema datalogger iniciando...");
+#endif // USE_LOGGER
+}
 
 void setup() {
-  Serial.begin(115200);
-  delay(3000);
-  
-  Serial.println("=======================================");
-  Serial.println("Sonar Propietario - CAN Parser");
-  Serial.println("ESP32-S3 + MCP2515");
-  Serial.println("=======================================");
-  
-  SPI.begin();
-  delay(100);
-  
-  if (CAN0.begin(CAN_250KBPS, MCP_8MHz) == CAN_OK) {
-    Serial.println("✅ MCP2515 inicializado en 250kbps");
-    Serial.println("🔍 Analizando protocolo del sonar...");
-    Serial.println("---------------------------------------");
-  } else {
-    Serial.println("❌ Error inicializando MCP2515");
-    while(1) delay(1000);
-  }
-  
-  lastHeartbeat = millis();
+    // Inicializar comunicación serial
+    Serial.begin(115200);
+    while (!Serial && millis() < 5000) {
+    }
+    delay(10);
+    init_logger();
+    // Iniciar los comandos del monitor serial
+    // commandManager.begin();
+
+    // // Inicar los sensores
+    // sensors.begin();
+
+    // // Iniciar SD
+    // micro_sd.begin();
+    // micro_sd.writeHeader("Ph, PH crudo");
+
+    // Sistema de emergencia
+    // LOG_INFO("MAIN", "=== TEST DE DETECCIÓN DE VELOCIDAD DEL SONAR ===");
+    
+    // // Ejecutar detección de velocidad del sonar
+    // LOG_INFO("MAIN", "Iniciando detección de velocidad del sonar...");
+    
+    // if (sonar.detectBaudRate()) {
+    //     LOG_INFO("MAIN", "¡Velocidad detectada exitosamente!");
+    //     LOG_INFO("MAIN", "Ahora reiniciando sonar con la velocidad detectada...");
+    //     sonar.begin();
+    //     LOG_INFO("MAIN", "=== TEST COMPLETADO ===");
+    //     LOG_INFO("MAIN", "Actualiza SONAR_BAUD_RATE en config.h con el valor mostrado arriba");
+    // } else {
+    //     LOG_ERROR("MAIN", "No se pudo detectar una velocidad válida");
+    //     LOG_ERROR("MAIN", "Verifica las conexiones del sonar:");
+    //     LOG_ERROR("MAIN", "- RX Pin: " + String(SONAR_RX_PIN));
+    //     LOG_ERROR("MAIN", "- TX Pin: " + String(SONAR_TX_PIN));
+    //     LOG_ERROR("MAIN", "- Alimentación del sensor");
+    // }
+    
+    // LOG_INFO("MAIN", "Test finalizado. Iniciando monitoreo de datos...");
+
+    /* PIX */
+    LOG_INFO("MAIN", "Iniciando sistema de telemetría Pixhawk");
+    
+    // Inicializar interfaz Pixhawk
+    pixhawk.begin();
+    one = true;
 }
 
 void loop() {
-  if (CAN0.checkReceive() == CAN_MSGAVAIL) {
-    unsigned long canId;
-    unsigned char len;
-    unsigned char data[8];
+    unsigned long currentTime = millis();
+
+    // Procesar lectura de sensores 
+    // sensors.update();
+    // // Procesar comandos seriales (siempre activo)
+    // commandManager.update();
+    // if (one) {
+    //     LOG_INFO("MAIN", "entrando al if de primera escritura");
+    //     String enviar = String(sensors.lastPH) + "," + String(sensors.lastRawPH);
+    //     micro_sd.writeData(enviar);
+    //     micro_sd.update();
+    //     LOG_INFO("MAIN", "SD updated");
+    //     one = false;
+    // }    
+    // delay(10000);
+    // emergencySystem.update();
+        // Solo actualizar y mostrar datos del sonar cada 2 segundos
+    // static unsigned long lastDisplay = 0;
+    // unsigned long currentTime = millis();
     
-    if (CAN0.readMsgBuf(&len, data) == CAN_OK) {
-      canId = CAN0.getCanId();
-      messageCount++;
-      
-      // Analizar mensajes del sonar
-      if (canId == 0xDF50B00) {
-        parseDepthData(data, len);
-      } else if (canId == 0x15FD0800) {
-        parseAlternateData(data, len);
-      } else {
-        // Otros mensajes
-        printRawMessage(canId, len, data);
-      }
+    // // Actualizar sonar
+    // sonar.update();
+    
+    // // Mostrar datos cada 2 segundos
+    // if (currentTime - lastDisplay >= 2000) {
+    //     if (sonar.isDataValid()) {
+    //         LOG_INFO("MAIN", "Sonar OK - Profundidad: " + String(sonar.getDepth(), 2) + 
+    //                  "m, Temp: " + String(sonar.getTemperature(), 1) + "°C");
+    //     } else {
+    //         LOG_WARN("MAIN", "Sonar - Sin datos válidos");
+    //         String lastData = sonar.getLastRawData();
+    //         if (lastData.length() > 0) {
+    //             LOG_DEBUG("MAIN", "Último dato raw: " + lastData.substring(0, min(100, (int)lastData.length())));
+    //         }
+    //     }
+    //     lastDisplay = currentTime;
+    // }
+    
+    // delay(100);
+
+    // Mostrar información del sonar cada 2 segundos
+    // if (currentTime - lastSonarDisplay >= 2000) {
+    //     if (sonar.isDataValid()) {
+    //         LOG_INFO("MAIN", "Sonar - Profundidad: " + String(sonar.getDepth(), 2) + 
+    //                  "m, Temp: " + String(sonar.getTemperature(), 1) + "°C");
+    //     } else {
+    //         LOG_WARN("MAIN", "Sonar - Datos inválidos o timeout");
+    //         LOG_DEBUG("MAIN", "Último dato raw: " + sonar.getLastRawData());
+    //     }
+    //     lastSonarDisplay = currentTime;
+    // }
+
+    // Sistema de sonar - detectar velocidad automáticamente
+
+    // emergencySystem.testGPSBaudRates();
+
+    /* PIX */
+    // Actualizar interfaz Pixhawk
+    pixhawk.update();
+
+    // Mostrar datos cada 2 segundos
+    if (currentTime - lastDisplayTime >= 2000) {
+        LOG_INFO("MAIN", "=== DATOS PIXHAWK ===");
+        LOG_INFO("MAIN", "Latitud: " + String(pixhawk.getLatitude(), 6) + "°");
+        LOG_INFO("MAIN", "Longitud: " + String(pixhawk.getLongitude(), 6) + "°");
+        LOG_INFO("MAIN", "Altitud: " + String(pixhawk.getAltitude(), 2) + " m");
+        LOG_INFO("MAIN", "Heading: " + String(pixhawk.getHeading(), 1) + "°");
+        LOG_INFO("MAIN", "====================");
+        lastDisplayTime = currentTime;
     }
-  }
-  
-  // Heartbeat cada 10 segundos
-  if (millis() - lastHeartbeat > 10000) {
-    lastHeartbeat = millis();
-    Serial.print("💓 Mensajes procesados: ");
-    Serial.println(messageCount);
-  }
-  
-  delay(10);
-}
 
-void parseDepthData(unsigned char *data, unsigned char len) {
-  if (len >= 8) {
-    uint8_t sequence = data[0];
-    
-    // Garmin Intelliducer - Protocol analysis
-    // Bytes 1-2: Posible profundidad (little endian)
-    uint16_t rawDepth = (uint16_t(data[2]) << 8) | data[1];
-    
-    // Solo mostrar si no está en secuencias de calibración (FF)
-    if (data[1] != 0xFF || data[2] != 0xFF) {
-      Serial.print("🌊 GARMIN [");
-      Serial.print(sequence, HEX);
-      Serial.print("] - Raw Depth: ");
-      Serial.print(rawDepth);
-      
-      // Probar diferentes escalas comunes
-      Serial.print(" | Escalas: ");
-      Serial.print(rawDepth * 0.1f, 1);  // decímetros -> metros
-      Serial.print("m, ");
-      Serial.print(rawDepth * 0.01f, 2); // centímetros -> metros  
-      Serial.print("m, ");
-      Serial.print(rawDepth * 0.001f, 3); // milímetros -> metros
-      Serial.print("m");
-      
-      // Temperatura en otros bytes?
-      if (len >= 6 && (data[4] != 0xFF || data[5] != 0xFF)) {
-        uint16_t rawTemp = (uint16_t(data[5]) << 8) | data[4];
-        Serial.print(" | Temp?: ");
-        Serial.print(rawTemp * 0.01f - 273.15f, 1); // Kelvin a Celsius
-        Serial.print("°C");
-      }
-      
-      Serial.print(" | Raw: ");
-      for (int i = 0; i < len; i++) {
-        if (data[i] < 16) Serial.print("0");
-        Serial.print(data[i], HEX);
-        Serial.print(" ");
-      }
-      Serial.println();
-    }
-  }
-}
-
-void parseAlternateData(unsigned char *data, unsigned char len) {
-  Serial.print("📊 ALT [");
-  Serial.print(data[0], HEX);
-  Serial.print("] - Data: ");
-  
-  for (int i = 0; i < len; i++) {
-    if (data[i] < 16) Serial.print("0");
-    Serial.print(data[i], HEX);
-    Serial.print(" ");
-  }
-  Serial.println();
-}
-
-void printRawMessage(unsigned long canId, unsigned char len, unsigned char *data) {
-  Serial.print("📡 ID: 0x");
-  Serial.print(canId, HEX);
-  Serial.print(" | Data: ");
-  
-  for (int i = 0; i < len; i++) {
-    if (data[i] < 16) Serial.print("0");
-    Serial.print(data[i], HEX);
-    Serial.print(" ");
-  }
-  Serial.println();
 }
