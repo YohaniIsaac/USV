@@ -150,15 +150,17 @@ void loop() {
     // Actualizar interfaz Pixhawk
     pixhawk.update();
 
-    // Mostrar datos cada 2 segundos
-    if (currentTime - lastDisplayTime >= 2000) {
-        LOG_INFO("MAIN", "=== DATOS PIXHAWK ===");
-        LOG_INFO("MAIN", "Latitud: " + String(pixhawk.getLatitude(), 6) + "°");
-        LOG_INFO("MAIN", "Longitud: " + String(pixhawk.getLongitude(), 6) + "°");
-        LOG_INFO("MAIN", "Altitud: " + String(pixhawk.getAltitude(), 2) + " m");
-        LOG_INFO("MAIN", "Heading: " + String(pixhawk.getHeading(), 1) + "°");
-        LOG_INFO("MAIN", "====================");
-        lastDisplayTime = currentTime;
+    pixhawk.show_message();
+
+
+
+    // Logging a SD cada 10 segundos (opcional)
+    if (currentTime - lastLogTime >= 10000) {
+        String csvData = pixhawk.save_CSVData();
+        // micro_sd.writeData(csvData);
+        // micro_sd.update();
+        LOG_DEBUG("MAIN", "CSV: " + csvData);
+        lastLogTime = currentTime;
     }
 
 }
