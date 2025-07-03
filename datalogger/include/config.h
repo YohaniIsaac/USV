@@ -26,7 +26,7 @@
  * EMERGENCY SYSTEM 
  */
 // Pines para el sistema de emergencia
-#define EMERGENCY_PIN 7            // Pin para detección de emergencia (normalmente HIGH)
+// #define EMERGENCY_PIN 7            // Pin para detección de emergencia (normalmente HIGH)
 
 // GPS
 #define EMERGENCY_GPS_RX_PIN 18    // RX del GPS de respaldo 18
@@ -48,14 +48,13 @@
  * SONAR SENSOR
  */
 // Pines para el sensor sonar (wcmcu-230)
-#define SONAR_RX_PIN 16      
-#define SONAR_TX_PIN 15 
-#define SONAR_BAUD_RATE 4800   // Velocidad de comunicación 
-
-#define SONAR_UPDATE_RATE 100       // 10 Hz para el sonar
-
+// #define SONAR_RX_PIN 16      
+// #define SONAR_TX_PIN 15 
+// #define SONAR_BAUD_RATE 4800   // Velocidad de comunicación 
+// #define SONAR_UPDATE_RATE 100       // 10 Hz para el sonar
 // Timeout para comunicación sonar (ms)
-#define SONAR_TIMEOUT 5000         // 5 segundos sin datos = error
+// #define SONAR_TIMEOUT 5000         // 5 segundos sin datos = error
+
 
 /*
  * PIXHAWK INTERFACE
