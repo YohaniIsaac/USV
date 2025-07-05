@@ -2,21 +2,18 @@
 #define SONAR_NMEA2000_H
 
 #include <Arduino.h>
-#include <NMEA2000_CAN.h>
-#include <N2kMessages.h>
-#include <N2kMsg.h>
 #include "logger.h"
+
+// Forward declarations - NO incluir NMEA2000_CAN.h aquí
+class tN2kMsg;
 
 class SonarNMEA2000 {
 public:
     // Constructor
     SonarNMEA2000();
     
-    // Destructor
-    ~SonarNMEA2000();
-    
     // Métodos principales
-    bool setup(uint32_t baudRate = 115200);
+    bool setup();
     void update();
     void show_data();
     

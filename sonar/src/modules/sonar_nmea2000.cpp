@@ -1,5 +1,10 @@
 #include "modules/sonar_nmea2000.h"
 
+// INCLUIR LAS LIBRERÍAS NMEA2000 SOLO AQUÍ, NO EN EL HEADER
+#include <NMEA2000_CAN.h>
+#include <N2kMessages.h>
+#include <N2kMsg.h>
+
 // Definición de pines CAN para ESP32
 #define ESP32_CAN_TX_PIN GPIO_NUM_2  // CAN TX pin
 #define ESP32_CAN_RX_PIN GPIO_NUM_4  // CAN RX pin
@@ -25,20 +30,8 @@ SonarNMEA2000::SonarNMEA2000() {
     lastDataTime_ = 0;
 }
 
-SonarNMEA2000::~SonarNMEA2000() {
-    if (instance_ == this) {
-        instance_ = nullptr;
-    }
-}
-
-bool SonarNMEA2000::setup(uint32_t baudRate) {
-    if (initialized_) {
-        LOG_WARN("SONAR", "Ya está inicializado");
-        return true;
-    }
-
+bool SonarNMEA2000::setup() {
     // Inicializar puerto serial
-    Serial.begin(baudRate);
     LOG_INFO("SONAR", "NMEA2000 Sonar Reader iniciado");
     
     // Configurar handler de mensajes NMEA2000

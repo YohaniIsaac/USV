@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include "config.h"
 #include "logger.h"
-#include "modules/sonar_nmea2000.h"
+#include "modules/sonar_nmea2000.h"  // SOLO incluir nuestro header, NO las librerías NMEA2000 directamente
 
 // Instancia del sonar
 SonarNMEA2000 sonar;
@@ -34,7 +34,7 @@ void setup() {
     LOG_INFO("MAIN", "=== SISTEMA SONAR NMEA2000 ===");
     
     // Inicializar sonar
-    if (sonar.setup(115200)) {
+    if (sonar.setup()) {
         LOG_INFO("MAIN", "✅ Sonar inicializado correctamente");
     } else {
         LOG_ERROR("MAIN", "❌ Error al inicializar sonar");
@@ -51,7 +51,6 @@ void setup() {
 
 void loop() {
     unsigned long currentTime = millis();
-    
     // Actualizar sonar (procesar mensajes NMEA2000)
     sonar.update();
     
