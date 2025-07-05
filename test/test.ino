@@ -1,8 +1,5 @@
-// SONAR NMEA2000 Reader - Versión Simplificada
-// Solo lee y muestra señales NMEA2000 del sonar en Serial
-
 #define ESP32_CAN_TX_PIN GPIO_NUM_2  // CAN TX pin
-#define ESP32_CAN_RX_PIN GPIO_NUM_4  // CAN RX pin
+#define ESP32_CAN_RX_PIN GPIO_NUM_4  // CAN RX pinAdd commentMore actions
 
 #include <Arduino.h>
 #include <NMEA2000_CAN.h>

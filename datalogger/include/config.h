@@ -26,7 +26,7 @@
  * EMERGENCY SYSTEM 
  */
 // Pines para el sistema de emergencia
-// #define EMERGENCY_PIN 7            // Pin para detección de emergencia (normalmente HIGH)
+#define EMERGENCY_PIN 7            // Pin para detección de emergencia (normalmente HIGH)
 
 // GPS
 #define EMERGENCY_GPS_RX_PIN 18    // RX del GPS de respaldo 18
@@ -62,6 +62,14 @@
 #define PIXHAWK_RX_PIN 16  // GPIO1 para recibir datos (solo RX)
 #define PIXHAWK_TX_PIN 15  // GPIO1 para recibir datos (solo RX)
 #define PIXHAWK_BAUD_RATE 57600 // Velocidad de comunicación MAVLink
+
+/*
+ * COMUNICACIÓN CON ESP-WROOM32 - UART3 PERSONALIZADO
+ */
+#define WROOM_UART_RX_PIN 1      
+#define WROOM_UART_TX_PIN 2        //  (aunque no lo uses)
+#define WROOM_BAUD_RATE 9600       // Velocidad de comunicación
+#define WROOM_UART_NUM 1           // Usar UART1 reasignado
 
 
 #endif // CONFIG_H

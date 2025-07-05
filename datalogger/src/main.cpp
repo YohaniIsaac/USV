@@ -5,7 +5,7 @@
 #include "managers/command_manager.h"
 #include "modules/sd_logger.h"
 #include "modules/emergency_system.h"
-#include "modules/sonar_sensor.h"
+#include "modules/communication_esp.h"
 #include "modules/pixhawk_interface.h"
 
 // Instancia de configuración PROBADO Y CONFIRMADO
