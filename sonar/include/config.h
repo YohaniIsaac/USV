@@ -28,8 +28,8 @@
  * COMUNICACIÓN CON DATALOGGER
  */
 // Comunicación UART con el ESP32-S3 datalogger
-#define DATALOGGER_UART_TX_PIN 17    // TX hacia datalogger
-#define DATALOGGER_UART_RX_PIN 16    // RX desde datalogger  
+#define DATALOGGER_UART_TX_PIN GPIO_NUM_32    // TX hacia datalogger
+#define DATALOGGER_UART_RX_PIN GPIO_NUM_21    // RX desde datalogger  
 #define DATALOGGER_BAUD_RATE 9600
 
 #endif // CONFIG_H

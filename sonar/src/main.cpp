@@ -1,10 +1,12 @@
 #include <Arduino.h>
 #include "config.h"
 #include "logger.h"
-#include "modules/sonar_nmea2000.h"  // SOLO incluir nuestro header, NO las librerías NMEA2000 directamente
+#include "modules/sonar_nmea2000.h"
+#include "modules/sonar_transmitter.h" 
 
 // Instancia del sonar
 SonarNMEA2000 sonar;
+SonarTransmitter transmitter;
 
 // Variables de control de tiempo
 unsigned long lastDisplayTime = 0;
@@ -16,6 +18,7 @@ void init_logger() {
     LogInit(INFO);
     // Configurar niveles por módulo
     LogSetModuleLevel("SONAR", DEBUG);
+    LogSetModuleLevel("SONAR_TX", DEBUG);
     LOG_INFO("MAIN", "Sistema sonar NMEA2000 iniciando...");
 #endif // USE_LOGGER
 }
@@ -27,12 +30,12 @@ void setup() {
         // Esperar conexión serial
     }
     delay(100);
-    
+
     // Inicializar logger
     init_logger();
-    
+
     LOG_INFO("MAIN", "=== SISTEMA SONAR NMEA2000 ===");
-    
+
     // Inicializar sonar
     if (sonar.setup()) {
         LOG_INFO("MAIN", "✅ Sonar inicializado correctamente");
@@ -42,10 +45,23 @@ void setup() {
             delay(1000);
         }
     }
-    
+
     // Opcional: habilitar mensajes raw para debugging
     // sonar.enableRawMessages(true);
-    
+
+    // Inicializar transmisor
+    if (transmitter.begin()) {
+        LOG_INFO("MAIN", "Transmisor hacia datalogger inicializado");
+        
+        // Configurar intervalo de transmisión (opcional)
+        transmitter.setTransmissionInterval(500);  // 500ms por defecto
+    } else {
+        LOG_ERROR("MAIN", "Error al inicializar transmisor");
+        while(1) {
+            delay(1000);
+        }
+    }
+
     LOG_INFO("MAIN", "Sistema listo. Esperando datos del sonar...");
 }
 
