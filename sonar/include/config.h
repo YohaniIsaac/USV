@@ -25,6 +25,11 @@
 #define SONAR_DATA_TIMEOUT 10000     // 10 segundos sin datos = timeout
 
 /*
+ * CONFIGURACIÓN DE PROMEDIADO Y TRANSMISIÓN
+ */
+#define SONAR_SAMPLES_TO_AVERAGE 10     // Número de muestras para promediar
+#define SONAR_TRANSMISSION_INTERVAL 2000 // Transmitir cada 2 segundos (2000ms)
+/*
  * COMUNICACIÓN CON DATALOGGER
  */
 // Comunicación UART con el ESP32-S3 datalogger

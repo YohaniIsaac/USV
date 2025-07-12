@@ -10,7 +10,8 @@ SonarTransmitter transmitter;
 
 // Variables de control de tiempo
 unsigned long lastDisplayTime = 0;
-unsigned long lastDataLogTime = 0;
+unsigned long lastDataCaptureTime = 0;
+unsigned long lastTransmissionCheck = 0;
 
 void init_logger() {
 #if USE_LOGGER
@@ -38,9 +39,9 @@ void setup() {
 
     // Inicializar sonar
     if (sonar.setup()) {
-        LOG_INFO("MAIN", "✅ Sonar inicializado correctamente");
+        LOG_INFO("MAIN", "Sonar inicializado correctamente");
     } else {
-        LOG_ERROR("MAIN", "❌ Error al inicializar sonar");
+        LOG_ERROR("MAIN", "Error al inicializar sonar");
         while(1) {
             delay(1000);
         }
@@ -54,7 +55,10 @@ void setup() {
         LOG_INFO("MAIN", "Transmisor hacia datalogger inicializado");
         
         // Configurar intervalo de transmisión (opcional)
-        transmitter.setTransmissionInterval(500);  // 500ms por defecto
+        transmitter.setTransmissionInterval(SONAR_TRANSMISSION_INTERVAL);
+        LOG_INFO("MAIN", "Intervalo de transmisión: " + String(SONAR_TRANSMISSION_INTERVAL) + "ms");
+        LOG_INFO("MAIN", "Muestras para promediar: " + String(SONAR_SAMPLES_TO_AVERAGE));
+
     } else {
         LOG_ERROR("MAIN", "Error al inicializar transmisor");
         while(1) {
@@ -62,32 +66,51 @@ void setup() {
         }
     }
 
-    LOG_INFO("MAIN", "Sistema listo. Esperando datos del sonar...");
+    LOG_INFO("MAIN", "Sistema listo. Iniciando captura y transmisión de datos...");
+    LOG_INFO("MAIN", "");
+    LOG_INFO("MAIN", "ORDEN DE DATOS TRANSMITIDOS POR UART:");
+    LOG_INFO("MAIN", "Formato: SONAR,timestamp,depth,offset,range,totalLog,tripLog,valid,samples");
+    LOG_INFO("MAIN", "1. timestamp  - Tiempo en milisegundos");
+    LOG_INFO("MAIN", "2. depth      - PROFUNDIDAD en metros (PRIMER DATO PRINCIPAL)");
+    LOG_INFO("MAIN", "3. offset     - Offset del transductor en metros");
+    LOG_INFO("MAIN", "4. range      - Rango de medición en metros");
+    LOG_INFO("MAIN", "5. totalLog   - Log total de distancia");
+    LOG_INFO("MAIN", "6. tripLog    - Log de viaje");
+    LOG_INFO("MAIN", "7. valid      - Validez de los datos (1=válido, 0=inválido)");
+    LOG_INFO("MAIN", "8. samples    - Número de muestras promediadas");
+    LOG_INFO("MAIN", "");
 }
 
 void loop() {
     unsigned long currentTime = millis();
-    // Actualizar sonar (procesar mensajes NMEA2000)
+
+    // Actualizar sonar
     sonar.update();
-    
-    // Mostrar datos cada 5 segundos
-    if (currentTime - lastDisplayTime >= 5000) {
-        sonar.show_data();
-        lastDisplayTime = currentTime;
-    }
-    
-    // Logging de datos cada 10 segundos (opcional)
-    if (currentTime - lastDataLogTime >= 10000) {
-        if (sonar.hasValidDepthData() || sonar.hasValidLogData()) {
-            String csvData = sonar.getCSVData();
-            LOG_INFO("MAIN", "CSV: " + csvData);
+
+    // Capturar datos del sonar cada 100ms para tener suficientes muestras
+    if (currentTime - lastDataCaptureTime >= 100) {
+        
+        // Verificar si tenemos datos válidos del sonar
+        if (sonar.hasValidDepthData()) {
+            // Obtener datos del sonar
+            double depth = sonar.getDepth();
+            double offset = sonar.getOffset();
+            double range = sonar.getRange();
+            uint32_t totalLog = sonar.getTotalLog();
+            uint32_t tripLog = sonar.getTripLog();
             
-            // Aquí podrías guardar en SD, enviar por serie, etc.
-            // sdLogger.writeData(csvData);
+            // Enviar datos al transmisor para promediado
+            transmitter.addSonarMeasurement(depth, offset, range, totalLog, tripLog);
+            
+            LOG_VERBOSE("MAIN", "Muestra capturada: depth=" + String(depth, 2) + 
+                       "m, muestras=" + String(transmitter.getMeasurementCount()));
+        } else {
+            LOG_DEBUG("MAIN", "Esperando datos válidos del sonar...");
         }
-        lastDataLogTime = currentTime;
+        
+        lastDataCaptureTime = currentTime;
     }
+    transmitter.update();
     
-    // Pequeña pausa para no saturar el procesador
-    delay(100);
+    delay(50);
 }
