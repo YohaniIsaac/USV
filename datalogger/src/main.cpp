@@ -5,7 +5,7 @@
 #include "managers/command_manager.h"
 #include "modules/sd_logger.h"
 #include "modules/emergency_system.h"
-#include "modules/communication_esp.h"
+#include "modules/sonar_receiver.h"
 #include "modules/pixhawk_interface.h"
 
 // Instancia de configuración PROBADO Y CONFIRMADO
@@ -13,16 +13,15 @@ AnalogSensors sensors;
 CommandManager commandManager(sensors);
 SDLogger micro_sd;
 EmergencySystem emergencySystem;
-SonarSensor sonar;
+SonarReceiver sonar;
 PixhawkInterface pixhawk;
 
 // Variables de control
 unsigned long lastSonarDisplay = 0;
 unsigned long lastDataLog = 0;
-
-// pix
 unsigned long lastDisplayTime = 0;
 unsigned long lastLogTime = 0;
+unsigned long lastEmergencyDisplay = 0;
 
 // Tests
 bool one;
@@ -32,7 +31,7 @@ void init_logger(){
     // Inicializar logger con nivel predeterminado
     LogInit(INFO);
     // Configurar niveles por módulo (opcional)
-    LogSetModuleLevel("EMERGENCY", DEBUG);
+    LogSetModuleLevel("EMERGENCY", VERBOSE);
     LogSetModuleLevel("ANALOG", DEBUG);
     LogSetModuleLevel("SD_LOGGER", DEBUG);
     LogSetModuleLevel("PIXHAWK", ERROR);
@@ -42,6 +41,7 @@ void init_logger(){
 #endif // USE_LOGGER
 }
 
+
 void setup() {
     // Inicializar comunicación serial
     Serial.begin(115200);
@@ -49,48 +49,53 @@ void setup() {
     }
     delay(10);
     init_logger();
+
     // Iniciar los comandos del monitor serial
-    // commandManager.begin();
+    commandManager.begin();
 
-    // // Inicar los sensores
-    // sensors.begin();
+    // Inicar los sensores
+    sensors.begin();
 
-    // // Iniciar SD
-    // micro_sd.begin();
-    // micro_sd.writeHeader("Ph, PH crudo");
+    // Iniciar SD
+    micro_sd.begin();
+    micro_sd.writeHeader("Ph, PH crudo");
 
     // Sistema de emergencia
-    // LOG_INFO("MAIN", "=== TEST DE DETECCIÓN DE VELOCIDAD DEL SONAR ===");
+    LOG_INFO("MAIN", "=== TEST DE DETECCIÓN DE VELOCIDAD DEL SONAR ===");
     
-    // // Ejecutar detección de velocidad del sonar
-    // LOG_INFO("MAIN", "Iniciando detección de velocidad del sonar...");
-    
-    // if (sonar.detectBaudRate()) {
-    //     LOG_INFO("MAIN", "¡Velocidad detectada exitosamente!");
-    //     LOG_INFO("MAIN", "Ahora reiniciando sonar con la velocidad detectada...");
-    //     sonar.begin();
-    //     LOG_INFO("MAIN", "=== TEST COMPLETADO ===");
-    //     LOG_INFO("MAIN", "Actualiza SONAR_BAUD_RATE en config.h con el valor mostrado arriba");
-    // } else {
-    //     LOG_ERROR("MAIN", "No se pudo detectar una velocidad válida");
-    //     LOG_ERROR("MAIN", "Verifica las conexiones del sonar:");
-    //     LOG_ERROR("MAIN", "- RX Pin: " + String(SONAR_RX_PIN));
-    //     LOG_ERROR("MAIN", "- TX Pin: " + String(SONAR_TX_PIN));
-    //     LOG_ERROR("MAIN", "- Alimentación del sensor");
-    // }
-    
-    // LOG_INFO("MAIN", "Test finalizado. Iniciando monitoreo de datos...");
+    LOG_INFO("MAIN", "=== CONFIGURACIÓN INICIAL DEL SISTEMA DE EMERGENCIA ===");
+    LOG_INFO("MAIN", "Pin de lectura de voltaje: GPIO" + String(EMERGENCY_VOLTAGE_PIN));
+    LOG_INFO("MAIN", "Pin de control de alimentación: GPIO" + String(EMERGENCY_POWER_CONTROL_PIN));
+    LOG_INFO("MAIN", "Voltaje máximo del sistema: " + String(VOLTAGE_MAX_REAL, 1) + "V");
+    LOG_INFO("MAIN", "Factor de escala: " + String(VOLTAGE_SCALE_FACTOR, 2));
+    LOG_INFO("MAIN", "Umbral de emergencia: " + String(EMERGENCY_VOLTAGE_THRESHOLD_REAL, 2) + "V");
+    LOG_INFO("MAIN", "Histéresis: " + String(EMERGENCY_VOLTAGE_HYSTERESIS_REAL, 2) + "V");
+    LOG_INFO("MAIN", "Frecuencia de chequeo: cada " + String(EMERGENCY_CHECK_RATE) + "ms");
+    LOG_INFO("MAIN", "========================================================");
+
 
     /* PIX */
-    LOG_INFO("MAIN", "Iniciando sistema de telemetría Pixhawk");
+    // LOG_INFO("MAIN", "Iniciando sistema de telemetría Pixhawk");
     
     // Inicializar interfaz Pixhawk
-    pixhawk.begin();
-    one = true;
+    // pixhawk.begin();
+
+
 }
 
 void loop() {
     unsigned long currentTime = millis();
+
+    // ===== SISTEMA DE EMERGENCIA (PRIORITARIO) =====
+    emergencySystem.update();
+    
+    // Mostrar estado de emergencia cada 5 segundos
+    if (currentTime - lastEmergencyDisplay >= 5000) {
+        LOG_DEBUG("MAIN", "Voltaje: " + String(emergencySystem.getCurrentVoltage(), 3) + 
+                  "V | Umbral: " + String(EMERGENCY_VOLTAGE_THRESHOLD_REAL, 2) + 
+                  "V | Emergencia: " + String(emergencySystem.isEmergencyActive() ? "ACTIVA" : "OK"));
+        lastEmergencyDisplay = currentTime;
+    }
 
     // Procesar lectura de sensores 
     // sensors.update();
@@ -150,7 +155,7 @@ void loop() {
     // Actualizar interfaz Pixhawk
     pixhawk.update();
 
-    pixhawk.show_message();
+    // pixhawk.show_message();
 
 
 
@@ -162,5 +167,6 @@ void loop() {
         LOG_DEBUG("MAIN", "CSV: " + csvData);
         lastLogTime = currentTime;
     }
+    delay(100);
 
 }

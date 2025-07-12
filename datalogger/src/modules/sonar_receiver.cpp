@@ -19,7 +19,7 @@ SonarReceiver::SonarReceiver() {
 bool SonarReceiver::begin() {
     // Configurar UART para recibir datos del ESP-WROOM
     wroomSerial = &Serial1;  // Usar UART1 del ESP32-S3
-    wroomSerial->begin(WROOM_BAUD_RATE, SERIAL_8N1, WROOM_UART_RX_PIN, -1);
+    wroomSerial->begin(WROOM_BAUD_RATE, SERIAL_8N1, WROOM_UART_RX_PIN, WROOM_UART_TX_PIN);
     wroomSerial->setTimeout(100);
     
     LOG_INFO("SONAR_RX", "Receptor inicializado:");
