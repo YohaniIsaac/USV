@@ -22,6 +22,9 @@ unsigned long lastStatusDisplay = 0;
 const unsigned long DATA_LOG_INTERVAL = 2000;    // Cada 2 segundos
 const unsigned long STATUS_DISPLAY_INTERVAL = 10000; // Mostrar estado cada 10 segundos
 
+// Pin de control para iniciar lectura
+#define CONTROL_PIN 47
+
 void init_logger(){
 #if USE_LOGGER
     // Inicializar logger con nivel predeterminado
@@ -47,13 +50,13 @@ String createCSVHeader() {
     header += sonar.getCSVHeader() + ",";
     
     // 2. Sensores analógicos
-    header += "pH,DO,EC,pHRaw,DORaw,ECRaw,";
+    header += "pH,DO,EC,";
     
     // 3. Datos de Pixhawk
-    header += "Latitude,Longitude,Altitude,Heading,BattVoltage,BattCurrent,BattRemaining,BattTemp,GroundSpeed,AirSpeed,NumSats,";
+    header += "Latitude,Longitude,Altitude,";
     
     // 4. Sistema de emergencia
-    header += "EmergencyActive,SystemVoltage,PowerControlActive";
+    // header += "EmergencyActive,SystemVoltage,PowerControlActive";
     
     return header;
 }
@@ -71,17 +74,17 @@ String collectAllData() {
     data += String(sensors.lastPH, 3) + ",";
     data += String(sensors.lastDO, 3) + ",";
     data += String(sensors.lastEC, 1) + ",";
-    data += String(sensors.lastRawPH) + ",";
-    data += String(sensors.lastRawDO) + ",";
-    data += String(sensors.lastRawEC) + ",";
+    // data += String(sensors.lastRawPH) + ",";
+    // data += String(sensors.lastRawDO) + ",";
+    // data += String(sensors.lastRawEC) + ",";
     
     // 3. Datos de Pixhawk
     data += pixhawk.save_CSVData() + ",";
     
     // 4. Sistema de emergencia
-    data += String(emergencySystem.isEmergencyActive() ? 1 : 0) + ",";
-    data += String(emergencySystem.getCurrentVoltage(), 3) + ",";
-    data += String(emergencySystem.isPowerControlActive() ? 1 : 0);
+    // data += String(emergencySystem.isEmergencyActive() ? 1 : 0) + ",";
+    // data += String(emergencySystem.getCurrentVoltage(), 3) + ",";
+    // data += String(emergencySystem.isPowerControlActive() ? 1 : 0);
     
     return data;
 }
@@ -130,6 +133,10 @@ void setup() {
     while (!Serial && millis() < 5000) {
     }
     delay(100);
+
+    // Configurar pin de control
+    pinMode(CONTROL_PIN, INPUT_PULLUP);
+    LOG_INFO("MAIN", "Pin de control " + String(CONTROL_PIN) + " configurado (LOW = activo)");
 
     // Inicializar sistema de logging
     init_logger();
@@ -186,51 +193,54 @@ void setup() {
     
     // Mostrar estado inicial
     displaySystemStatus();
-
 }
 
 void loop() {
     unsigned long currentTime = millis();
-    
-    // ===== ACTUALIZAR TODOS LOS MÓDULOS =====
+
     // Procesar comandos seriales
     commandManager.update();
 
     // Sistema de emergencia
     emergencySystem.update();
     
-    // Actualizar sensores analógicos
-    sensors.update();
-    
-    // Actualizar receptor de sonar
-    sonar.update();
-    
-    // Actualizar interfaz Pixhawk
-    pixhawk.update();
-    
-    // ===== CAPTURA Y ALMACENAMIENTO DE DATOS =====
-    if (currentTime - lastDataLog >= DATA_LOG_INTERVAL) {
-        LOG_DEBUG("MAIN", "Capturando datos");
+    // Leer pin de control - solo ejecutar cuando esté LOW
+    if (digitalRead(CONTROL_PIN) == LOW) {
+
+        // ===== ACTUALIZAR TODOS LOS MÓDULOS =====
+        // Actualizar sensores analógicos
+        sensors.update();
         
-        // Recopilar todos los datos
-        String allData = collectAllData();
+        // Actualizar receptor de sonar
+        sonar.update();
         
-        // Escribir a SD
-        micro_sd.writeData(allData);
-        micro_sd.update();
+        // Actualizar interfaz Pixhawk
+        pixhawk.update();
         
-        LOG_INFO("MAIN", "Datos guardados en SD");
-        LOG_VERBOSE("MAIN", "Datos: " + allData);
+        // ===== CAPTURA Y ALMACENAMIENTO DE DATOS =====
+        if (currentTime - lastDataLog >= DATA_LOG_INTERVAL) {
+            LOG_DEBUG("MAIN", "Capturando datos");
+            
+            // Recopilar todos los datos
+            String allData = collectAllData();
+            
+            // Escribir a SD
+            micro_sd.writeData(allData);
+            micro_sd.update();
+            
+            LOG_INFO("MAIN", "Datos guardados en SD");
+            LOG_VERBOSE("MAIN", "Datos: " + allData);
+            
+            lastDataLog = currentTime;
+        }
         
-        lastDataLog = currentTime;
+        // ===== MOSTRAR ESTADO DEL SISTEMA =====
+        if (currentTime - lastStatusDisplay >= STATUS_DISPLAY_INTERVAL) {
+            displaySystemStatus();
+            lastStatusDisplay = currentTime;
+        }
+        
+        // Pequeña pausa para no saturar el procesador
+        delay(50);
     }
-    
-    // ===== MOSTRAR ESTADO DEL SISTEMA =====
-    if (currentTime - lastStatusDisplay >= STATUS_DISPLAY_INTERVAL) {
-        displaySystemStatus();
-        lastStatusDisplay = currentTime;
-    }
-    
-    // Pequeña pausa para no saturar el procesador
-    delay(50);
 }

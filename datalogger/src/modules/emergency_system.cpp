@@ -26,7 +26,14 @@ EmergencySystem::EmergencySystem() : gpsSerial(1) {
     powerControlActive = true;  // Por defecto, alimentación activa
     voltageReadingIndex = 0;
     voltageBufferFull = false;
-    
+
+    // Inicializar variables de seguridad de conmutación
+    // stateChangeTime = millis();
+    // pendingStateChange = false;
+    // targetEmergencyState = false;
+    // conditionStartTime = 0;
+    // conditionMet = false;
+
     // Inicializar buffer de voltaje
     for (int i = 0; i < EMERGENCY_VOLTAGE_SAMPLES; i++) {
         voltageReadings[i] = 0.0;
@@ -87,7 +94,8 @@ void EmergencySystem::update() {
         checkVoltageLevel();
         lastCheckTime = currentTime;
     }
-    
+
+
     // Si está en emergencia, leer GPS y enviar datos
     if (emergencyActive) {
         // Leer GPS continuamente

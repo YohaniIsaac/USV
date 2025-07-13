@@ -259,7 +259,7 @@ unsigned long SonarReceiver::getErrorPacketsReceived() const {
 }
 
 String SonarReceiver::getCSVHeader() const {
-    return "SonarDepth,SonarOffset,SonarRange,SonarTotalLog,SonarTripLog,SonarSamples,SonarValid";
+    return "SonarDepth,SonarValid";
 }
 
 String SonarReceiver::getCSVData() const {
@@ -267,14 +267,14 @@ String SonarReceiver::getCSVData() const {
     
     if (hasValidData()) {
         data += String(isnan(currentData_.depth) ? 0 : currentData_.depth, 3) + ",";
-        data += String(isnan(currentData_.offset) ? 0 : currentData_.offset, 3) + ",";
-        data += String(isnan(currentData_.range) ? 0 : currentData_.range, 3) + ",";
-        data += String(currentData_.totalLog) + ",";
-        data += String(currentData_.tripLog) + ",";
-        data += String(currentData_.sampleCount) + ",";
+        // data += String(isnan(currentData_.offset) ? 0 : currentData_.offset, 3) + ",";
+        // data += String(isnan(currentData_.range) ? 0 : currentData_.range, 3) + ",";
+        // data += String(currentData_.totalLog) + ",";
+        // data += String(currentData_.tripLog) + ",";
+        // data += String(currentData_.sampleCount) + ",";
         data += String(currentData_.valid ? 1 : 0);
     } else {
-        data += "NaN,NaN,NaN,0,0,0,0";
+        data += "NaN,0";
     }
     
     return data;

@@ -21,7 +21,11 @@ public:
     float getCurrentVoltage() { return currentVoltage; }
     float getVoltageThreshold() { return EMERGENCY_VOLTAGE_THRESHOLD_REAL; }
     bool isPowerControlActive() { return powerControlActive; }
-    
+
+    // Métodos para monitoreo de la seguridad de conmutación
+    unsigned long getTimeInCurrentState() { return millis() - stateChangeTime; }
+    bool isStatePending() { return pendingStateChange; }
+
 private:
     HardwareSerial gpsSerial;
     TinyGPSPlus gps;
@@ -41,6 +45,14 @@ private:
     float voltageReadings[EMERGENCY_VOLTAGE_SAMPLES];  // Buffer para promedio
     int voltageReadingIndex;
     bool voltageBufferFull;
+
+    // Variables para seguridad de conmutación
+    static const unsigned long RELAY_SAFETY_TIME = 5000;  // 5 segundos mínimo
+    unsigned long stateChangeTime;        // Tiempo del último cambio de estado
+    bool pendingStateChange;              // Si hay un cambio pendiente
+    bool targetEmergencyState;            // Estado objetivo (para cambio pendiente)
+    unsigned long conditionStartTime;     // Cuando comenzó la condición actual
+    bool conditionMet;                    // Si la condición se está cumpliendo
 
     // Direcciones para NRF24L01
     uint8_t txAddress[6];  // Dirección de transmisión
@@ -70,6 +82,10 @@ private:
     void checkVoltageLevel();
     float readAverageVoltage();
     void updateVoltageBuffer(float newReading);
+
+    // Métodos para control seguro de conmutación
+    void requestEmergencyStateChange(bool newEmergencyState);
+    void processPendingStateChange();
     
     void activateEmergency();
     void deactivateEmergency();

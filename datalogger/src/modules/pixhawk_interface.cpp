@@ -452,14 +452,14 @@ String PixhawkInterface::save_CSVData() {
     data += String(latitude, 6) + ",";
     data += String(longitude, 6) + ",";
     data += String(altitude, 2) + ",";
-    data += String(heading, 1) + ",";
-    data += String(batteryVoltage, 2) + ",";
-    data += String(batteryCurrent, 2) + ",";
-    data += String(batteryRemaining) + ",";
-    data += String(batteryTemperature, 1) + ",";
-    data += String(groundSpeed, 2) + ",";
-    data += String(airSpeed, 2) + ",";
-    data += String(numSatellites);
+    // data += String(heading, 1) + ",";
+    // data += String(batteryVoltage, 2) + ",";
+    // data += String(batteryCurrent, 2) + ",";
+    // data += String(batteryRemaining) + ",";
+    // data += String(batteryTemperature, 1) + ",";
+    // data += String(groundSpeed, 2) + ",";
+    // data += String(airSpeed, 2) + ",";
+    // data += String(numSatellites);
     
     return data;
 }
