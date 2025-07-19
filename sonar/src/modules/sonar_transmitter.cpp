@@ -3,12 +3,9 @@
 
 SonarTransmitter::SonarTransmitter() {
     dataloggerSerial = nullptr;
-    transmissionInterval_ = 500;      // 500ms por defecto
-    averagingPeriod_ = 450;          // 450ms para recolección, 50ms para transmisión
+    transmissionInterval_ = 2000;     // 2000ms (2 segundos)
     lastTransmissionTime_ = 0;
-    measurementStartTime_ = 0;
     measurementCount_ = 0;
-    collectingData_ = false;
     
     // Inicializar array de mediciones
     resetMeasurements();
@@ -28,7 +25,7 @@ bool SonarTransmitter::begin() {
     LOG_INFO("SONAR_TX", "  RX Pin: GPIO" + String(DATALOGGER_UART_RX_PIN));
     LOG_INFO("SONAR_TX", "  Baudios: " + String(DATALOGGER_BAUD_RATE));
     LOG_INFO("SONAR_TX", "  Intervalo TX: " + String(transmissionInterval_) + "ms");
-    LOG_INFO("SONAR_TX", "  Período promedio: " + String(averagingPeriod_) + "ms");
+    LOG_INFO("SONAR_TX", "  Recolección continua: SÍ");
     
     // Enviar mensaje de inicio
     delay(1000);  // Esperar a que datalogger esté listo
@@ -39,35 +36,35 @@ bool SonarTransmitter::begin() {
 
 void SonarTransmitter::update() {
     unsigned long currentTime = millis();
-    
-    // Verificar si es momento de iniciar nuevo período de medición
-    if (!collectingData_ && (currentTime - lastTransmissionTime_ >= transmissionInterval_)) {
-        startMeasurementPeriod();
-    }
-    
-    // Verificar si terminó el período de recolección
-    if (collectingData_ && (currentTime - measurementStartTime_ >= averagingPeriod_)) {
+ 
+    // Verificar si es momento de transmitir
+    if (currentTime - lastTransmissionTime_ >= transmissionInterval_) {
         calculateAndTransmitAverage();
     }
+    
+    // // Verificar si es momento de iniciar nuevo período de medición
+    // if (!collectingData_ && (currentTime - lastTransmissionTime_ >= transmissionInterval_)) {
+    //     startMeasurementPeriod();
+    // }
+    
+    // // Verificar si terminó el período de recolección
+    // if (collectingData_ && (currentTime - measurementStartTime_ >= averagingPeriod_)) {
+    //     calculateAndTransmitAverage();
+    // }
 }
 
 void SonarTransmitter::addSonarMeasurement(double depth, double offset, double range, 
                                           uint32_t totalLog, uint32_t tripLog, float temperature) {
-    // Solo agregar mediciones si estamos en período de recolección
-    if (!collectingData_) {
+    // Validar datos primero
+    if (!isValidMeasurement(depth, offset, range, temperature)) {
+        // LOG_DEBUG("SONAR_TX", "Medición inválida descartada");
         return;
     }
     
     // Verificar si tenemos espacio para más mediciones
     if (measurementCount_ >= MAX_MEASUREMENTS) {
-        LOG_WARN("SONAR_TX", "Buffer de mediciones lleno, descartando medición");
-        return;
-    }
-    
-    // Validar datos
-    if (!isValidMeasurement(depth, offset, range, temperature)) {
-        LOG_DEBUG("SONAR_TX", "Medición inválida descartada");
-        return;
+        LOG_WARN("SONAR_TX", "Buffer lleno (" + String(MAX_MEASUREMENTS) + "), forzando transmisión");
+        calculateAndTransmitAverage();  // Transmitir inmediatamente si buffer está lleno
     }
     
     // Agregar medición al buffer
@@ -82,23 +79,13 @@ void SonarTransmitter::addSonarMeasurement(double depth, double offset, double r
     
     measurementCount_++;
     
-    LOG_VERBOSE("SONAR_TX", "Medición #" + String(measurementCount_) + 
-                " agregada: depth=" + String(depth, 2) + "m, temp_agua=" + String(temperature, 1) + "°C");
-}
+    LOG_INFO("SONAR_TX", "Datos VÁLIDOS #" + String(measurementCount_) + 
+            ": depth=" + String(depth, 2) + "m, offset=" + String(offset, 2) + 
+            "m, range=" + String(range, 2) + "m, temp=" + String(temperature, 1) + 
+            "°C, totalLog=" + String(totalLog) + ", tripLog=" + String(tripLog));}
 
-void SonarTransmitter::startMeasurementPeriod() {
-    collectingData_ = true;
-    measurementStartTime_ = millis();
-    resetMeasurements();
-    
-    LOG_DEBUG("SONAR_TX", "Iniciando período de recolección de " + 
-              String(averagingPeriod_) + "ms");
-}
-
-void SonarTransmitter::calculateAndTransmitAverage() {
-    collectingData_ = false;
-    
-    LOG_DEBUG("SONAR_TX", "Finalizando recolección. Mediciones obtenidas: " + 
+void SonarTransmitter::calculateAndTransmitAverage() {    
+    LOG_DEBUG("SONAR_TX", "Transmitiendo datos. Mediciones acumuladas: " + 
               String(measurementCount_));
     
     if (measurementCount_ == 0) {
@@ -282,15 +269,8 @@ bool SonarTransmitter::isValidMeasurement(double depth, double offset, double ra
 // Métodos de configuración
 void SonarTransmitter::setTransmissionInterval(unsigned long intervalMs) {
     transmissionInterval_ = intervalMs;
-    averagingPeriod_ = intervalMs - 50;  // Dejar 50ms para transmisión
     LOG_INFO("SONAR_TX", "Intervalo de transmisión actualizado: " + 
-             String(transmissionInterval_) + "ms");
-}
-
-void SonarTransmitter::setAveragingPeriod(unsigned long periodMs) {
-    averagingPeriod_ = periodMs;
-    LOG_INFO("SONAR_TX", "Período de promediado actualizado: " + 
-             String(averagingPeriod_) + "ms");
+             String(transmissionInterval_) + "ms (recolección continua)");
 }
 
 // Métodos de estado

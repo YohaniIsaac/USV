@@ -30,9 +30,7 @@ private:
     
     // Control de tiempo
     unsigned long transmissionInterval_;      // Intervalo de transmisión (500ms por defecto)
-    unsigned long averagingPeriod_;          // Período de promediado (450ms por defecto)
     unsigned long lastTransmissionTime_;
-    unsigned long measurementStartTime_;
     
     // Datos para promedio
     struct SonarData {
@@ -48,10 +46,8 @@ private:
     static const int MAX_MEASUREMENTS = 50;  // Máximo de mediciones a promediar
     SonarData measurements_[MAX_MEASUREMENTS];
     int measurementCount_;
-    bool collectingData_;
     
     // Métodos privados
-    void startMeasurementPeriod();
     void calculateAndTransmitAverage();
     SonarData calculateAverage();
     void transmitData(const SonarData& data);
