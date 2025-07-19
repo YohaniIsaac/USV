@@ -69,15 +69,16 @@ void setup() {
     LOG_INFO("MAIN", "Sistema listo. Iniciando captura y transmisión de datos...");
     LOG_INFO("MAIN", "");
     LOG_INFO("MAIN", "ORDEN DE DATOS TRANSMITIDOS POR UART:");
-    LOG_INFO("MAIN", "Formato: SONAR,timestamp,depth,offset,range,totalLog,tripLog,valid,samples");
+    LOG_INFO("MAIN", "Formato: SONAR,timestamp,depth,offset,range,totalLog,tripLog,temperature,valid,samples");
     LOG_INFO("MAIN", "1. timestamp  - Tiempo en milisegundos");
     LOG_INFO("MAIN", "2. depth      - PROFUNDIDAD en metros (PRIMER DATO PRINCIPAL)");
     LOG_INFO("MAIN", "3. offset     - Offset del transductor en metros");
     LOG_INFO("MAIN", "4. range      - Rango de medición en metros");
     LOG_INFO("MAIN", "5. totalLog   - Log total de distancia");
     LOG_INFO("MAIN", "6. tripLog    - Log de viaje");
-    LOG_INFO("MAIN", "7. valid      - Validez de los datos (1=válido, 0=inválido)");
-    LOG_INFO("MAIN", "8. samples    - Número de muestras promediadas");
+    LOG_INFO("MAIN", "7. temperature - TEMPERATURA DEL AGUA desde sonar Garmin (°C)");
+    LOG_INFO("MAIN", "8. valid      - Validez de los datos (1=válido, 0=inválido)");
+    LOG_INFO("MAIN", "9. samples    - Número de muestras promediadas");
     LOG_INFO("MAIN", "");
 }
 
@@ -98,12 +99,14 @@ void loop() {
             double range = sonar.getRange();
             uint32_t totalLog = sonar.getTotalLog();
             uint32_t tripLog = sonar.getTripLog();
+            float temperature = sonar.getTemperature();
             
             // Enviar datos al transmisor para promediado
-            transmitter.addSonarMeasurement(depth, offset, range, totalLog, tripLog);
+            transmitter.addSonarMeasurement(depth, offset, range, totalLog, tripLog, temperature);
             
             LOG_VERBOSE("MAIN", "Muestra capturada: depth=" + String(depth, 2) + 
-                       "m, muestras=" + String(transmitter.getMeasurementCount()));
+                       "m, temp_agua=" + String(temperature, 1) + "°C, muestras=" + 
+                       String(transmitter.getMeasurementCount()));
         } else {
             LOG_DEBUG("MAIN", "Esperando datos válidos del sonar...");
         }

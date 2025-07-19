@@ -52,7 +52,7 @@ void SonarTransmitter::update() {
 }
 
 void SonarTransmitter::addSonarMeasurement(double depth, double offset, double range, 
-                                          uint32_t totalLog, uint32_t tripLog) {
+                                          uint32_t totalLog, uint32_t tripLog, float temperature) {
     // Solo agregar mediciones si estamos en período de recolección
     if (!collectingData_) {
         return;
@@ -65,7 +65,7 @@ void SonarTransmitter::addSonarMeasurement(double depth, double offset, double r
     }
     
     // Validar datos
-    if (!isValidMeasurement(depth, offset, range)) {
+    if (!isValidMeasurement(depth, offset, range, temperature)) {
         LOG_DEBUG("SONAR_TX", "Medición inválida descartada");
         return;
     }
@@ -77,12 +77,13 @@ void SonarTransmitter::addSonarMeasurement(double depth, double offset, double r
     measurement.range = range;
     measurement.totalLog = totalLog;
     measurement.tripLog = tripLog;
+    measurement.temperature = temperature;
     measurement.valid = true;
     
     measurementCount_++;
     
     LOG_VERBOSE("SONAR_TX", "Medición #" + String(measurementCount_) + 
-                " agregada: depth=" + String(depth, 2) + "m");
+                " agregada: depth=" + String(depth, 2) + "m, temp_agua=" + String(temperature, 1) + "°C");
 }
 
 void SonarTransmitter::startMeasurementPeriod() {
@@ -108,6 +109,7 @@ void SonarTransmitter::calculateAndTransmitAverage() {
         errorData.range = NAN;
         errorData.totalLog = 0;
         errorData.tripLog = 0;
+        errorData.temperature = NAN;
         errorData.valid = false;
         
         transmitData(errorData);
@@ -118,8 +120,8 @@ void SonarTransmitter::calculateAndTransmitAverage() {
         transmitData(avgData);
         
         LOG_INFO("SONAR_TX", "Promedio calculado y transmitido: depth=" + 
-                 String(avgData.depth, 2) + "m (" + String(measurementCount_) + 
-                 " mediciones)");
+                 String(avgData.depth, 2) + "m, temp_agua=" + String(avgData.temperature, 1) + 
+                 "°C (" + String(measurementCount_) + " mediciones)"); 
     }
     
     lastTransmissionTime_ = millis();
@@ -132,8 +134,11 @@ SonarTransmitter::SonarData SonarTransmitter::calculateAverage() {
     double sumRange = 0.0;
     uint64_t sumTotalLog = 0;  // Usar uint64_t para evitar overflow
     uint64_t sumTripLog = 0;
+    double sumTemperature = 0.0; 
     int validCount = 0;
-    
+    int validTempCount = 0;
+
+
     // Sumar todas las mediciones válidas
     for (int i = 0; i < measurementCount_; i++) {
         if (measurements_[i].valid) {
@@ -150,6 +155,11 @@ SonarTransmitter::SonarData SonarTransmitter::calculateAverage() {
             sumTotalLog += measurements_[i].totalLog;
             sumTripLog += measurements_[i].tripLog;
             validCount++;
+
+            if (!isnan(measurements_[i].temperature)) {
+                sumTemperature += measurements_[i].temperature;
+                validTempCount++;
+            }
         }
     }
     
@@ -169,6 +179,12 @@ SonarTransmitter::SonarData SonarTransmitter::calculateAverage() {
         avgData.tripLog = 0;
         avgData.valid = false;
     }
+
+    if (validTempCount > 0) {
+        avgData.temperature = sumTemperature / validTempCount;
+    } else {
+        avgData.temperature = NAN;
+    }
     
     return avgData;
 }
@@ -186,7 +202,7 @@ void SonarTransmitter::transmitData(const SonarData& data) {
 }
 
 String SonarTransmitter::formatDataPacket(const SonarData& data) {
-    // Formato: SONAR,timestamp,depth,offset,range,totalLog,tripLog,valid,samples
+    // Formato: SONAR,timestamp,depth,offset,range,totalLog,tripLog,temperature,valid,samples
     String packet = "SONAR,";
     packet += String(millis()) + ",";
     
@@ -213,6 +229,14 @@ String SonarTransmitter::formatDataPacket(const SonarData& data) {
     
     packet += String(data.totalLog) + ",";
     packet += String(data.tripLog) + ",";
+
+    if (!isnan(data.temperature)) {
+        packet += String(data.temperature, 1);
+    } else {
+        packet += "NaN";
+    }
+    packet += ",";
+
     packet += String(data.valid ? 1 : 0) + ",";
     packet += String(measurementCount_);
     
@@ -228,10 +252,11 @@ void SonarTransmitter::resetMeasurements() {
         measurements_[i].range = NAN;
         measurements_[i].totalLog = 0;
         measurements_[i].tripLog = 0;
+        measurements_[i].temperature = NAN;
     }
 }
 
-bool SonarTransmitter::isValidMeasurement(double depth, double offset, double range) {
+bool SonarTransmitter::isValidMeasurement(double depth, double offset, double range, float temperature) {
     // Verificar que al menos la profundidad sea válida
     if (isnan(depth)) {
         return false;
@@ -240,6 +265,14 @@ bool SonarTransmitter::isValidMeasurement(double depth, double offset, double ra
     // Verificar rangos razonables (ajustar según tu aplicación)
     if (depth < 0.0 || depth > 1000.0) {  // Profundidad entre 0 y 1000m
         return false;
+    }
+    
+    // Validar temperatura (rango razonable para sensor)
+    if (!isnan(temperature)) {
+        if (temperature < -40.0 || temperature > 125.0) {  // Rango razonable para sensor ESP32
+            LOG_WARN("SONAR_TX", "Temperatura fuera de rango: " + String(temperature, 1) + "°C");
+            // No invalidar la medición por temperatura, pero log el warning
+        }
     }
     
     // El offset y range pueden ser NaN sin invalidar la medición

@@ -23,6 +23,7 @@ public:
     double getRange() const;
     uint32_t getTotalLog() const;
     uint32_t getTripLog() const;
+    float getTemperature() const;
     
     // Métodos de estado
     bool hasValidDepthData() const;
@@ -43,6 +44,7 @@ private:
     double lastRange_;
     uint32_t lastTotalLog_;
     uint32_t lastTripLog_;
+    float lastTemperature_;
     
     // Estado del sistema
     bool depthDataValid_;
@@ -50,13 +52,15 @@ private:
     bool rawMessagesEnabled_;
     bool initialized_;
     unsigned long lastDataTime_;
+    unsigned long lastTempReadTime_;
     
     // Métodos privados para procesamiento de mensajes
     void handleNMEA2000Message(const tN2kMsg &N2kMsg);
     void processDepthData(const tN2kMsg &N2kMsg);
     void processDistanceLog(const tN2kMsg &N2kMsg);
+    void processTemperature(const tN2kMsg &N2kMsg);
     void printRawMessage(const tN2kMsg &N2kMsg);
-    
+
     // Función estática para el callback
     static void staticMessageHandler(const tN2kMsg &N2kMsg);
     

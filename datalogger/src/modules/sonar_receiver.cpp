@@ -18,7 +18,7 @@ SonarReceiver::SonarReceiver() {
 
 bool SonarReceiver::begin() {
     // Configurar UART para recibir datos del ESP-WROOM
-    wroomSerial = &Serial1;  // Usar UART1 del ESP32-S3
+    wroomSerial = &Serial2;  // Usar UART1 del ESP32-S3
     wroomSerial->begin(WROOM_BAUD_RATE, SERIAL_8N1, WROOM_UART_RX_PIN, WROOM_UART_TX_PIN);
     wroomSerial->setTimeout(100);
     
@@ -96,9 +96,9 @@ bool SonarReceiver::parsePacket(const String& packet) {
     // Dividir packet en campos
     int fieldCount = 0;
     int startIndex = 6;  // Después de "SONAR,"
-    String fields[8];    // Esperamos 8 campos después de "SONAR"
+    String fields[9];    // Esperamos 8 campos después de "SONAR"
     
-    while (fieldCount < 8 && startIndex < packet.length()) {
+    while (fieldCount < 9 && startIndex < packet.length()) {
         int commaIndex = packet.indexOf(',', startIndex);
         
         if (commaIndex == -1) {
@@ -114,8 +114,8 @@ bool SonarReceiver::parsePacket(const String& packet) {
     }
     
     // Verificar que tenemos todos los campos
-    if (fieldCount != 8) {
-        LOG_WARN("SONAR_RX", "Packet incompleto - campos: " + String(fieldCount) + "/8");
+    if (fieldCount != 9) {
+        LOG_WARN("SONAR_RX", "Packet incompleto - campos: " + String(fieldCount) + "/9");
         return false;
     }
     
@@ -127,13 +127,15 @@ bool SonarReceiver::parsePacket(const String& packet) {
         currentData_.range = parseDoubleValue(fields[3]);
         currentData_.totalLog = parseUInt32Value(fields[4]);
         currentData_.tripLog = parseUInt32Value(fields[5]);
-        currentData_.valid = (fields[6].toInt() == 1);
-        currentData_.sampleCount = fields[7].toInt();
+        currentData_.temperature = parseFloatValue(fields[6]);
+        currentData_.valid = (fields[7].toInt() == 1);
+        currentData_.sampleCount = fields[8].toInt();
         currentData_.receivedTime = millis();
         
         LOG_INFO("SONAR_RX", "Datos actualizados - Depth: " + 
                  String(isnan(currentData_.depth) ? 0 : currentData_.depth, 2) + 
-                 "m, Samples: " + String(currentData_.sampleCount));
+                 "m, Temp_agua: " + String(isnan(currentData_.temperature) ? 0 : currentData_.temperature, 1) + 
+                 "°C, Samples: " + String(currentData_.sampleCount)); 
         
         return true;
         
@@ -193,12 +195,21 @@ uint32_t SonarReceiver::parseUInt32Value(const String& value) {
     return strtoul(value.c_str(), nullptr, 10);
 }
 
+// Parser para valores float (temperatura)
+float SonarReceiver::parseFloatValue(const String& value) {
+    if (value == "NaN" || value.length() == 0) {
+        return NAN;
+    }
+    return value.toFloat();
+}
+
 void SonarReceiver::resetData() {
     currentData_.depth = NAN;
     currentData_.offset = NAN;
     currentData_.range = NAN;
     currentData_.totalLog = 0;
     currentData_.tripLog = 0;
+    currentData_.temperature = NAN;
     currentData_.timestamp = 0;
     currentData_.sampleCount = 0;
     currentData_.valid = false;
@@ -224,6 +235,10 @@ uint32_t SonarReceiver::getTotalLog() const {
 
 uint32_t SonarReceiver::getTripLog() const {
     return currentData_.tripLog;
+}
+
+float SonarReceiver::getTemperature() const {
+    return currentData_.temperature;
 }
 
 bool SonarReceiver::hasValidData() const {
@@ -259,7 +274,7 @@ unsigned long SonarReceiver::getErrorPacketsReceived() const {
 }
 
 String SonarReceiver::getCSVHeader() const {
-    return "SonarDepth,SonarValid";
+    return "SonarDepth,WaterTemperature,SonarValid";
 }
 
 String SonarReceiver::getCSVData() const {
@@ -272,9 +287,10 @@ String SonarReceiver::getCSVData() const {
         // data += String(currentData_.totalLog) + ",";
         // data += String(currentData_.tripLog) + ",";
         // data += String(currentData_.sampleCount) + ",";
+        data += String(isnan(currentData_.temperature) ? 0 : currentData_.temperature, 1) + ",";
         data += String(currentData_.valid ? 1 : 0);
     } else {
-        data += "NaN,0";
+        data += "NaN,NaN,0";
     }
     
     return data;
@@ -285,7 +301,8 @@ void SonarReceiver::showStatus() const {
     LOG_INFO("SONAR_RX", "Conectado: " + String(connected_ ? "Sí" : "No"));
     
     if (hasValidData()) {
-        LOG_INFO("SONAR_RX", "📏 DATOS VÁLIDOS:");
+        LOG_INFO("SONAR_RX", "  DATOS VÁLIDOS:"
+        );
         if (!isnan(currentData_.depth)) {
             LOG_INFO("SONAR_RX", "  Profundidad: " + String(currentData_.depth, 2) + " m");
         }
@@ -295,15 +312,18 @@ void SonarReceiver::showStatus() const {
         if (!isnan(currentData_.range)) {
             LOG_INFO("SONAR_RX", "  Rango: " + String(currentData_.range, 2) + " m");
         }
+        if (!isnan(currentData_.temperature)) {
+            LOG_INFO("SONAR_RX", "  Temperatura agua: " + String(currentData_.temperature, 1) + " °C");
+        }
         LOG_INFO("SONAR_RX", "  Muestras promediadas: " + String(currentData_.sampleCount));
         
         unsigned long dataAge = millis() - currentData_.receivedTime;
         LOG_INFO("SONAR_RX", "  Edad del dato: " + String(dataAge) + " ms");
     } else {
-        LOG_WARN("SONAR_RX", "❌ Sin datos válidos");
+        LOG_WARN("SONAR_RX", "  Sin datos válidos");
     }
     
-    LOG_INFO("SONAR_RX", "📊 ESTADÍSTICAS:");
+    LOG_INFO("SONAR_RX", "  ESTADÍSTICAS:");
     LOG_INFO("SONAR_RX", "  Packets totales: " + String(totalPacketsReceived_));
     LOG_INFO("SONAR_RX", "  Packets válidos: " + String(validPacketsReceived_));
     LOG_INFO("SONAR_RX", "  Packets con error: " + String(errorPacketsReceived_));

@@ -20,6 +20,7 @@ public:
     double getRange() const;
     uint32_t getTotalLog() const;
     uint32_t getTripLog() const;
+    float getTemperature() const;
     
     // Estado y metadatos
     bool hasValidData() const;
@@ -49,6 +50,7 @@ private:
         double range;
         uint32_t totalLog;
         uint32_t tripLog;
+        float temperature;
         unsigned long timestamp;    // Timestamp del ESP-WROOM
         int sampleCount;           // Número de muestras promediadas
         bool valid;
@@ -75,6 +77,7 @@ private:
     void logPacketStats();
     double parseDoubleValue(const String& value);
     uint32_t parseUInt32Value(const String& value);
+    float parseFloatValue(const String& value);
     void resetData();
 };
 

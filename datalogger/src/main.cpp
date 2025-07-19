@@ -36,7 +36,7 @@ void init_logger(){
     LogSetModuleLevel("ANALOG", INFO);
     LogSetModuleLevel("SD_LOGGER", INFO);
     LogSetModuleLevel("SONAR_RX", INFO);
-    LogSetModuleLevel("PIXHAWK", INFO);
+    LogSetModuleLevel("PIXHAWK", DEBUG);
     LogSetModuleLevel("CMD", WARN);
     
     LOG_INFO("MAIN", "Sistema datalogger iniciando...");
@@ -204,43 +204,40 @@ void loop() {
     // Sistema de emergencia
     emergencySystem.update();
     
-    // Leer pin de control - solo ejecutar cuando esté LOW
-    if (digitalRead(CONTROL_PIN) == LOW) {
-
-        // ===== ACTUALIZAR TODOS LOS MÓDULOS =====
-        // Actualizar sensores analógicos
-        sensors.update();
+    // ===== ACTUALIZAR TODOS LOS MÓDULOS =====
+    // Actualizar sensores analógicos
+    sensors.update();
+    
+    // Actualizar receptor de sonar
+    sonar.update();
+    
+    // Actualizar interfaz Pixhawk
+    pixhawk.update();
         
-        // Actualizar receptor de sonar
-        sonar.update();
+    // ===== CAPTURA Y ALMACENAMIENTO DE DATOS =====
+    if (currentTime - lastDataLog >= DATA_LOG_INTERVAL) {
+        LOG_DEBUG("MAIN", "Capturando datos");
         
-        // Actualizar interfaz Pixhawk
-        pixhawk.update();
+        // Recopilar todos los datos
+        String allData = collectAllData();
         
-        // ===== CAPTURA Y ALMACENAMIENTO DE DATOS =====
-        if (currentTime - lastDataLog >= DATA_LOG_INTERVAL) {
-            LOG_DEBUG("MAIN", "Capturando datos");
-            
-            // Recopilar todos los datos
-            String allData = collectAllData();
-            
-            // Escribir a SD
-            micro_sd.writeData(allData);
-            micro_sd.update();
-            
-            LOG_INFO("MAIN", "Datos guardados en SD");
-            LOG_VERBOSE("MAIN", "Datos: " + allData);
-            
-            lastDataLog = currentTime;
-        }
+        // Escribir a SD
+        micro_sd.writeData(allData);
+        micro_sd.update();
         
-        // ===== MOSTRAR ESTADO DEL SISTEMA =====
-        if (currentTime - lastStatusDisplay >= STATUS_DISPLAY_INTERVAL) {
-            displaySystemStatus();
-            lastStatusDisplay = currentTime;
-        }
+        LOG_INFO("MAIN", "Datos guardados en SD");
+        LOG_VERBOSE("MAIN", "Datos: " + allData);
         
-        // Pequeña pausa para no saturar el procesador
-        delay(50);
+        lastDataLog = currentTime;
     }
+    
+    // ===== MOSTRAR ESTADO DEL SISTEMA =====
+    if (currentTime - lastStatusDisplay >= STATUS_DISPLAY_INTERVAL) {
+        displaySystemStatus();
+        lastStatusDisplay = currentTime;
+        // pixhawk.show_message();
+    }
+        
+    // Pequeña pausa para no saturar el procesador
+    delay(1600);
 }

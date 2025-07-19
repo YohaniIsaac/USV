@@ -11,7 +11,7 @@ public:
     void update();
     void show_message();
     
-    // Getters básicos para los datos
+    // Getters básicos para los datos (mantener interfaz original)
     float getLatitude();
     float getLongitude();
     float getAltitude();
@@ -35,35 +35,60 @@ public:
 private:
     HardwareSerial pixhawkSerial;
     
-    // Datos básicos de navegación
+    // Datos básicos de navegación (mantener nombres originales)
     float latitude;
     float longitude;
     float altitude;
     float heading;
     
-    // 🔋 Variables de batería
+    // Variables adicionales de orientación
+    float roll;
+    float pitch;
+    float yaw;
+    float altitudeRelative;
+    
+    // Velocidades (nombres españoles para compatibilidad)
+    float velocidadSuelo;
+    float velocidadAire;
+    float velocidadVertical;
+    
+    // GPS (nombres españoles para compatibilidad)
+    uint8_t tipoFixGPS;
+    uint8_t satelites;
+    
+    // 🔋 Variables de batería (mantener nombres originales)
     float batteryVoltage;
     float batteryCurrent;
     int batteryRemaining;
     float batteryTemperature;
     
-    // 📊 Variables adicionales
+    // 📊 Variables adicionales (nombres ingleses para compatibilidad)
     float groundSpeed;
     float airSpeed;
     int numSatellites;
     int gpsFixType;
     
+    // Estado de conexión y sistema
+    bool connected;
+    bool armed;
+    uint8_t flightMode;
+    uint8_t systemStatus;
+    
     unsigned long lastUpdateTime;
     
-    // Funciones de procesamiento MAVLink
+    // Funciones de procesamiento MAVLink (refactorizadas)
     void parseMAVLink();
-    void processMAVLinkMessage(uint8_t* buffer, uint8_t length);
-    void parseGPSRawInt(uint8_t* buffer, uint8_t length, bool isMAVLink2);
-    void parseAttitude(uint8_t* buffer, uint8_t length, bool isMAVLink2);
-    void parseGlobalPosition(uint8_t* buffer, uint8_t length, bool isMAVLink2);
-    void parseBatteryStatus(uint8_t* buffer, uint8_t length, bool isMAVLink2);
-    void parseVFRHUD(uint8_t* buffer, uint8_t length, bool isMAVLink2);
-    void parseGPSStatus(uint8_t* buffer, uint8_t length, bool isMAVLink2);
+    void processMAVLinkMessage(uint8_t* buffer, uint8_t length, bool isMAVLink2);
+    
+    // Métodos de parseo simplificados (basados en el código funcional)
+    void parseHeartbeat(uint8_t* payload);
+    void parseSysStatus(uint8_t* payload);
+    void parseGPSRawInt(uint8_t* payload);
+    void parseAttitude(uint8_t* payload);
+    void parseGlobalPosition(uint8_t* payload);
+    void parseVFRHUD(uint8_t* payload);
+    void parseBatteryStatus(uint8_t* payload);
+    void parseGPSStatus(uint8_t* payload);
 };
 
 #endif // PIXHAWK_INTERFACE_H
