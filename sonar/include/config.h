@@ -29,6 +29,7 @@
  */
 #define SONAR_SAMPLES_TO_AVERAGE 10     // Número de muestras para promediar
 #define SONAR_TRANSMISSION_INTERVAL 2000 // Transmitir cada 2 segundos (2000ms)
+
 /*
  * COMUNICACIÓN CON DATALOGGER
  */
