@@ -9,6 +9,8 @@
 #include <RF24.h>
 #include "config.h"
 
+class PixhawkInterface;
+
 class EmergencySystem {
 public:
     EmergencySystem();      //Constructor
@@ -16,6 +18,9 @@ public:
     void begin();
     void update();
     bool isEmergencyActive() { return emergencyActive; }
+
+    // Método para inyectar referencia al Pixhawk
+    void setPixhawkInterface(PixhawkInterface* pixhawk) { pixhawkInterface = pixhawk; }
 
     // Métodos para monitoreo de voltaje
     float getCurrentVoltage() { return currentVoltage; }
@@ -27,11 +32,13 @@ public:
     bool isStatePending() { return pendingStateChange; }
 
 private:
-    HardwareSerial gpsSerial;
     TinyGPSPlus gps;
     RF24* radio;  // Puntero para el objeto RF24
     SPIClass* hspi;  // SPI personalizado para ESP32
     
+    // Referencia al Pixhawk para coordinación
+    PixhawkInterface* pixhawkInterface;
+
     bool emergencyActive;
     bool gpsInitialized;
     bool nrfInitialized;

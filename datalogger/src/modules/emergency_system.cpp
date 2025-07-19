@@ -1,11 +1,13 @@
 #include "modules/emergency_system.h"
+#include "modules/pixhawk_interface.h" 
 #include "logger.h"
 #include <SPI.h>
 #include <nRF24L01.h>
 #include <RF24.h>
 
+
 // Constructor
-EmergencySystem::EmergencySystem() : gpsSerial(1) {
+EmergencySystem::EmergencySystem() {
     // Inicializar el array manualmente
     txAddress[0] = 'E';
     txAddress[1] = 'M';
@@ -47,13 +49,14 @@ EmergencySystem::EmergencySystem() : gpsSerial(1) {
 
     radio = nullptr;
     hspi = nullptr;
+    pixhawkInterface = nullptr;
 }
 
 // Destructor
 EmergencySystem::~EmergencySystem() {
     // Limpiar recursos si están activos
     if (gpsInitialized) {
-        gpsSerial.end();
+        Serial1.end();
     }
     
     if (radio) {
@@ -179,9 +182,16 @@ void EmergencySystem::activateEmergency() {
     // Conmutar control de alimentación
     setPowerControl(false);  // Cambiar a modo emergencia (LOW)
 
+    // Pausar Pixhawk y liberar UART1
+    if (pixhawkInterface != nullptr) {
+        LOG_INFO("EMERGENCY", "Pausando comunicación con Pixhawk");
+        pixhawkInterface->pauseForEmergency();
+        delay(100); // Pequeña pausa para asegurar liberación del UART
+    }
+
     /* Inicializar GPS si no está inicializado */
     if (!gpsInitialized) {
-        gpsSerial.begin(9600, SERIAL_8N1, EMERGENCY_GPS_RX_PIN, EMERGENCY_GPS_TX_PIN);
+        Serial1.begin(9600, SERIAL_8N1, EMERGENCY_GPS_RX_PIN, EMERGENCY_GPS_TX_PIN);
         gpsInitialized = true;
         LOG_DEBUG("EMERGENCY", "GPS de respaldo inicializado");
     }
@@ -204,7 +214,7 @@ void EmergencySystem::deactivateEmergency() {
     // Opcional: apagar GPS para ahorrar energía
     if (gpsInitialized) {
         LOG_DEBUG("EMERGENCY", "Apagando gps");
-        gpsSerial.end();
+        Serial1.end();
         gpsInitialized = false;
     }
     
@@ -230,7 +240,7 @@ void EmergencySystem::setPowerControl(bool enable) {
 
 void EmergencySystem::readGPSData() {
     // Verificar si hay datos disponibles
-    int available = gpsSerial.available();
+    int available = Serial1.available();
     LOG_DEBUG("EMERGENCY", "Bytes disponibles en GPS: " + String(available));
     
     if (available > 0) {
@@ -241,8 +251,8 @@ void EmergencySystem::readGPSData() {
         int sentencesProcessed = 0;
         
         // Procesar TODOS los datos disponibles
-        while (gpsSerial.available() > 0) {
-            char c = gpsSerial.read();
+        while (Serial1.available() > 0) {
+            char c = Serial1.read();
             bytesProcessed++;
             
             // Procesar cada caracter con TinyGPS++

@@ -172,6 +172,9 @@ void setup() {
     LOG_INFO("MAIN", "Inicializando interfaz Pixhawk");
     pixhawk.begin();
     LOG_INFO("MAIN", "Interfaz Pixhawk lista");
+
+    // Conectar sistemas para coordinación
+    emergencySystem.setPixhawkInterface(&pixhawk);
     
     // Inicializar tarjeta SD
     LOG_INFO("MAIN", "Inicializando tarjeta SD");

@@ -2,7 +2,7 @@
 #include "logger.h"
 
 // Constructor
-PixhawkInterface::PixhawkInterface() : pixhawkSerial(1) {
+PixhawkInterface::PixhawkInterface()  {
     // Posición y navegación básicas (mantener nombres originales)
     latitude = 0.0;
     longitude = 0.0;
@@ -42,12 +42,15 @@ PixhawkInterface::PixhawkInterface() : pixhawkSerial(1) {
     armed = false;
     flightMode = 0;
     systemStatus = 0;
+
+    paused = false;         
+    wasInitialized = false;  
 }
 
 void PixhawkInterface::begin() {
     // Configurar UART para comunicación con Pixhawk
-    pixhawkSerial.begin(PIXHAWK_BAUD_RATE, SERIAL_8N1, PIXHAWK_RX_PIN, PIXHAWK_TX_PIN);
-    pixhawkSerial.setTimeout(100);
+    Serial1.begin(PIXHAWK_BAUD_RATE, SERIAL_8N1, PIXHAWK_RX_PIN, PIXHAWK_TX_PIN);
+    Serial1.setTimeout(100);
     
     LOG_INFO("PIXHAWK", "Interfaz Pixhawk inicializada");
     LOG_INFO("PIXHAWK", "Puerto: UART1, Baudios: " + String(PIXHAWK_BAUD_RATE));
@@ -56,20 +59,33 @@ void PixhawkInterface::begin() {
 }
 
 void PixhawkInterface::update() {
+    // No procesar si está pausado
+    if (paused) {
+        return;
+    }
+
     unsigned long currentTime = millis();
-    
+
     // Procesar mensajes MAVLink disponibles
     parseMAVLink();
-    
-    // Actualizar estado de conexión
-    // if (currentTime - lastUpdateTime > 5000) {
-    //     connected = false;
-    // }
-    
-    // // Verificar timeout (sin datos por más de 5 segundos)
-    // if (currentTime - lastUpdateTime > 5000 && lastUpdateTime > 0) {
-    //     LOG_WARN("PIXHAWK", "Timeout - Sin datos MAVLink por más de 5 segundos");
-    // }
+
+}
+
+void PixhawkInterface::pauseForEmergency() {
+    if (!paused && wasInitialized) {
+        LOG_INFO("PIXHAWK", "Pausando comunicación - liberando UART1");
+        Serial1.end();
+        paused = true;
+    }
+}
+
+void PixhawkInterface::resumeAfterEmergency() {
+    if (paused && wasInitialized) {
+        LOG_INFO("PIXHAWK", "Reanudando comunicación - reactivando UART1");
+        Serial1.begin(PIXHAWK_BAUD_RATE, SERIAL_8N1, PIXHAWK_RX_PIN, PIXHAWK_TX_PIN);
+        Serial1.setTimeout(100);
+        paused = false;
+    }
 }
 
 void PixhawkInterface::parseMAVLink() {
@@ -79,8 +95,8 @@ void PixhawkInterface::parseMAVLink() {
     static bool isMAVLink2 = false;
     static uint8_t expectedLength = 0;
     
-    while (pixhawkSerial.available()) {
-        uint8_t receivedByte = pixhawkSerial.read();
+    while (Serial1.available()) {
+        uint8_t receivedByte = Serial1.read();
         
         // Detectar inicio de mensaje MAVLink
         if (!inMessage && (receivedByte == 0xFD || receivedByte == 0xFE)) {

@@ -10,7 +10,12 @@ public:
     void begin();
     void update();
     void show_message();
-    
+
+    // Métodos para gestión temporal del UART
+    void pauseForEmergency();    // Liberar UART1 para GPS
+    void resumeAfterEmergency(); // Retomar UART1 para Pixhawk
+    bool isPaused() const { return paused; }
+
     // Getters básicos para los datos (mantener interfaz original)
     float getLatitude();
     float getLongitude();
@@ -33,8 +38,10 @@ public:
     String getCSVHeader();
 
 private:
-    HardwareSerial pixhawkSerial;
-    
+    // Estado de pausa
+    bool paused;
+    bool wasInitialized;
+
     // Datos básicos de navegación (mantener nombres originales)
     float latitude;
     float longitude;
