@@ -22,6 +22,7 @@ SonarNMEA2000::SonarNMEA2000() {
     lastRange_ = NAN;
     lastTotalLog_ = 0;
     lastTripLog_ = 0;
+    lastTemperature_ = NAN; 
     
     depthDataValid_ = false;
     logDataValid_ = false;
@@ -56,13 +57,34 @@ void SonarNMEA2000::update() {
     
     // Procesar mensajes NMEA2000
     NMEA2000.ParseMessages();
-    
-    // Verificar timeout de datos (opcional)
+
+    // Verificar timeout de datos
     unsigned long currentTime = millis();
     if (lastDataTime_ > 0 && (currentTime - lastDataTime_ > 10000)) {
         LOG_WARN("SONAR", "Timeout - Sin datos por más de 10 segundos");
         depthDataValid_ = false;
         logDataValid_ = false;
+    }
+}
+
+// Procesar datos de temperatura del sonar
+void SonarNMEA2000::processTemperature(const tN2kMsg &N2kMsg) {
+    unsigned char SID;
+    unsigned char TempInstance;
+    tN2kTempSource TempSource;
+    double ActualTemperature;
+    double SetTemperature;
+    
+    if (ParseN2kTemperature(N2kMsg, SID, TempInstance, TempSource, ActualTemperature, SetTemperature)) {
+        // Solo procesar si es temperatura del agua (Sea Temperature)
+        if (TempSource == N2kts_SeaTemperature || TempSource == N2kts_OutsideTemperature) {
+            if (ActualTemperature != N2kDoubleNA) {
+                lastTemperature_ = KelvinToC(ActualTemperature);  // Convertir de Kelvin a Celsius
+                LOG_DEBUG("SONAR", "Temperatura del agua actualizada: " + String(lastTemperature_, 1) + "°C");
+            }
+        }
+    } else {
+        LOG_WARN("SONAR", "Error al parsear datos de temperatura");
     }
 }
 
@@ -108,7 +130,15 @@ void SonarNMEA2000::show_data() {
     } else {
         LOG_WARN("SONAR", "❌ Sin datos válidos de log");
     }
-    
+
+    // Mostrar temperatura del agua
+    LOG_INFO("SONAR", "🌡️ TEMPERATURA DEL AGUA:");
+    if (!isnan(lastTemperature_)) {
+        LOG_INFO("SONAR", "  Temperatura: " + String(lastTemperature_, 1) + " °C");
+    } else {
+        LOG_INFO("SONAR", "  Temperatura: N/A");
+    }
+
     LOG_INFO("SONAR", "=============================================");
 }
 
@@ -133,6 +163,10 @@ uint32_t SonarNMEA2000::getTripLog() const {
     return lastTripLog_;
 }
 
+float SonarNMEA2000::getTemperature() const {
+    return lastTemperature_;
+}
+
 bool SonarNMEA2000::hasValidDepthData() const {
     return depthDataValid_;
 }
@@ -151,7 +185,7 @@ void SonarNMEA2000::enableRawMessages(bool enable) {
 }
 
 String SonarNMEA2000::getCSVHeader() const {
-    return "Profundidad,Offset,Rango,LogTotal,TripLog";
+    return "Profundidad,Offset,Rango,LogTotal,TripLog, TemperaturaAgua";
 }
 
 String SonarNMEA2000::getCSVData() const {
@@ -195,7 +229,14 @@ String SonarNMEA2000::getCSVData() const {
     } else {
         data += "N/A";
     }
-    
+
+    // Temperatura
+    if (!isnan(lastTemperature_)) {
+        data += String(lastTemperature_, 1);
+    } else {
+        data += "N/A";
+    }
+
     return data;
 }
 
@@ -215,6 +256,11 @@ void SonarNMEA2000::handleNMEA2000Message(const tN2kMsg &N2kMsg) {
             break;
         case 128275L: // Distance Log
             processDistanceLog(N2kMsg);
+            break;
+        case 130316L: // Temperature Extended Range
+        case 130312L: // Temperature
+            LOG_INFO("SONAR", "🌡️ TEMPERATURE recibido!");
+            processTemperature(N2kMsg);
             break;
         default:
             // Mostrar otros mensajes si está habilitado

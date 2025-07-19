@@ -13,8 +13,8 @@ public:
     // Métodos principales
     bool begin();
     void update();
-    void addSonarMeasurement(double depth, double offset, double range, uint32_t totalLog, uint32_t tripLog);
-    
+    void addSonarMeasurement(double depth, double offset, double range, uint32_t totalLog, uint32_t tripLog, float temperature);
+
     // Configuración
     void setTransmissionInterval(unsigned long intervalMs);
     void setAveragingPeriod(unsigned long periodMs);
@@ -41,6 +41,7 @@ private:
         double range;
         uint32_t totalLog;
         uint32_t tripLog;
+        float temperature;
         bool valid;
     };
     
@@ -58,7 +59,7 @@ private:
     void resetMeasurements();
     
     // Validación
-    bool isValidMeasurement(double depth, double offset, double range);
+    bool isValidMeasurement(double depth, double offset, double range, float temperature); 
 };
 
 #endif // SONAR_TRANSMITTER_H
