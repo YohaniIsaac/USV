@@ -1,3 +1,11 @@
+// Definición de pines CAN para ESP32
+// #ifndef ESP32_CAN_TX_PIN
+// #define ESP32_CAN_TX_PIN GPIO_NUM_2  // CAN TX pin (before GPIO_NUM_2) 
+// #endif
+// #ifndef ESP32_CAN_RX_PIN  
+// #define ESP32_CAN_RX_PIN GPIO_NUM_4   // CAN RX pin (before GPIO_NUM_4)
+// #endif
+
 #include "modules/sonar_nmea2000.h"
 
 // INCLUIR LAS LIBRERÍAS NMEA2000 SOLO AQUÍ, NO EN EL HEADER
@@ -5,9 +13,7 @@
 #include <N2kMessages.h>
 #include <N2kMsg.h>
 
-// Definición de pines CAN para ESP32
-#define ESP32_CAN_TX_PIN GPIO_NUM_2  // CAN TX pin
-#define ESP32_CAN_RX_PIN GPIO_NUM_4  // CAN RX pin
+
 
 // Instancia estática para el callback
 SonarNMEA2000* SonarNMEA2000::instance_ = nullptr;
@@ -111,11 +117,11 @@ void SonarNMEA2000::show_data() {
             LOG_INFO("SONAR", "  Rango: N/A");
         }
     } else {
-        LOG_WARN("SONAR", "❌ Sin datos válidos de profundidad");
+        LOG_WARN("SONAR", " Sin datos válidos de profundidad");
     }
     
     if (hasValidLogData()) {
-        LOG_INFO("SONAR", "📊 LOG DE DISTANCIA:");
+        LOG_INFO("SONAR", " LOG DE DISTANCIA:");
         if (lastTotalLog_ != 0) {
             LOG_INFO("SONAR", "  Log Total: " + String(lastTotalLog_) + " m");
         } else {
@@ -128,11 +134,11 @@ void SonarNMEA2000::show_data() {
             LOG_INFO("SONAR", "  Trip Log: N/A");
         }
     } else {
-        LOG_WARN("SONAR", "❌ Sin datos válidos de log");
+        LOG_WARN("SONAR", " Sin datos válidos de log");
     }
 
     // Mostrar temperatura del agua
-    LOG_INFO("SONAR", "🌡️ TEMPERATURA DEL AGUA:");
+    LOG_INFO("SONAR", " TEMPERATURA DEL AGUA:");
     if (!isnan(lastTemperature_)) {
         LOG_INFO("SONAR", "  Temperatura: " + String(lastTemperature_, 1) + " °C");
     } else {
@@ -259,7 +265,7 @@ void SonarNMEA2000::handleNMEA2000Message(const tN2kMsg &N2kMsg) {
             break;
         case 130316L: // Temperature Extended Range
         case 130312L: // Temperature
-            LOG_INFO("SONAR", "🌡️ TEMPERATURE recibido!");
+            LOG_INFO("SONAR", " TEMPERATURE recibido!");
             processTemperature(N2kMsg);
             break;
         default:

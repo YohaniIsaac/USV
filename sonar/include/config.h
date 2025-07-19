@@ -8,12 +8,7 @@
 #define USE_LOGGER 1  // Habilitar sistema de logging
 #endif
 
-/*
- * SONAR NMEA2000
- */
-// Pines CAN para ESP-WROOM-32
-#define ESP32_CAN_TX_PIN GPIO_NUM_2  // CAN TX pin  
-#define ESP32_CAN_RX_PIN GPIO_NUM_4  // CAN RX pin
+
 
 // Configuración de comunicación
 #define SONAR_SERIAL_BAUD 115200

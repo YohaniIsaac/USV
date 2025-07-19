@@ -1,3 +1,10 @@
+/*
+ * SONAR NMEA2000
+ */
+// Pines CAN para ESP-WROOM-32
+#define ESP32_CAN_TX_PIN GPIO_NUM_16  // CAN TX pin  
+#define ESP32_CAN_RX_PIN GPIO_NUM_4  // CAN RX pin
+
 #include <Arduino.h>
 #include "config.h"
 #include "logger.h"
