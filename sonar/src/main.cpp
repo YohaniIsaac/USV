@@ -98,28 +98,55 @@ void loop() {
     // Capturar datos del sonar cada 100ms para tener suficientes muestras
     if (currentTime - lastDataCaptureTime >= 100) {
         
-        // Verificar si tenemos datos válidos del sonar
-        if (sonar.hasValidDepthData()) {
-            // Obtener datos del sonar
-            double depth = sonar.getDepth();
-            double offset = sonar.getOffset();
-            double range = sonar.getRange();
-            uint32_t totalLog = sonar.getTotalLog();
-            uint32_t tripLog = sonar.getTripLog();
-            float temperature = sonar.getTemperature();
-            
-            // Enviar datos al transmisor para promediado
+        // Obtener TODOS los datos disponibles
+        double depth = sonar.getDepth();
+        double offset = sonar.getOffset(); 
+        double range = sonar.getRange();
+        uint32_t totalLog = sonar.getTotalLog();
+        uint32_t tripLog = sonar.getTripLog();
+        float temperature = sonar.getTemperature();
+        
+        // Verificar si al menos UN dato es válido (INCLUYENDO depth = 0.0)
+        bool hasValidDepth = !isnan(depth);  // 0.0 ES VÁLIDO!
+        bool hasValidTemp = !isnan(temperature);
+        bool hasValidOffset = !isnan(offset);
+        bool hasValidRange = !isnan(range);
+        bool hasValidLogs = (totalLog > 0 || tripLog > 0);
+        
+        bool hasAnyValidData = hasValidDepth || hasValidTemp || hasValidOffset || hasValidRange || hasValidLogs;
+        
+        if (hasAnyValidData) {
+            // Enviar TODOS los datos al transmisor (algunos pueden ser NaN)
             transmitter.addSonarMeasurement(depth, offset, range, totalLog, tripLog, temperature);
             
-            LOG_VERBOSE("MAIN", "Muestra capturada: depth=" + String(depth, 2) + 
-                       "m, temp_agua=" + String(temperature, 1) + "°C, muestras=" + 
-                       String(transmitter.getMeasurementCount()));
+            // Log detallado de lo que se capturó
+            String logMsg = "Muestra capturada: ";
+            if (hasValidDepth) {
+                logMsg += "depth=" + String(depth, 2) + "m ";
+            }
+            if (hasValidTemp) {
+                logMsg += "temp=" + String(temperature, 1) + "°C ";
+            }
+            if (hasValidOffset) {
+                logMsg += "offset=" + String(offset, 2) + "m ";
+            }
+            if (hasValidRange) {
+                logMsg += "range=" + String(range, 2) + "m ";
+            }
+            if (hasValidLogs) {
+                logMsg += "logs=" + String(totalLog) + "/" + String(tripLog) + " ";
+            }
+            logMsg += "muestras=" + String(transmitter.getMeasurementCount());
+            
+            LOG_VERBOSE("MAIN", logMsg);
         } else {
             LOG_DEBUG("MAIN", "Esperando datos válidos del sonar...");
         }
         
         lastDataCaptureTime = currentTime;
     }
+    
+    // Actualizar transmisor
     transmitter.update();
     
     delay(50);

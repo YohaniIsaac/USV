@@ -17,7 +17,6 @@ public:
 
     // Configuración
     void setTransmissionInterval(unsigned long intervalMs);
-    void setAveragingPeriod(unsigned long periodMs);
     
     // Estado
     bool isConnected() const;
@@ -43,11 +42,15 @@ private:
         bool valid;
     };
     
-    static const int MAX_MEASUREMENTS = 50;  // Máximo de mediciones a promediar
+    static const int MAX_MEASUREMENTS = 100;  // Máximo de mediciones a promediar
     SonarData measurements_[MAX_MEASUREMENTS];
     int measurementCount_;
-    
+    int writeIndex_;              // Índice donde escribir el próximo dato
+    int validDataCount_;          // Cuántos datos válidos hay en el buffer
+    bool bufferFull_;            // Si el buffer ha dado una vuelta completa
+       
     // Métodos privados
+    void addToCircularBuffer(const SonarData& data);
     void calculateAndTransmitAverage();
     SonarData calculateAverage();
     void transmitData(const SonarData& data);
