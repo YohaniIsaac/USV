@@ -58,7 +58,7 @@ void AnalogSensors::performReadings() {
         
         // Pausa entre ciclos de lectura
         if (i < NUM_READINGS - 1) {
-            delay(1);  // 1ms entre ciclos
+            delay(10);  // 1ms entre ciclos
         }
     }
 }
@@ -71,7 +71,10 @@ void AnalogSensors::update() {
     lastRawPH = getAverageReading(phReadings);
     lastRawDO = getAverageReading(doReadings);
     lastRawEC = getAverageReading(ecReadings);
-    
+    LOG_INFO("ANALOG", "Valores crudos promediados:");
+    LOG_INFO("ANALOG", "  pH raw: " + String(lastRawPH));
+    LOG_INFO("ANALOG", "  DO raw: " + String(lastRawDO)); 
+    LOG_INFO("ANALOG", "  EC raw: " + String(lastRawEC));
     // Convertir a voltaje
     float phVoltage = (lastRawPH  * 3.3) / 4095.0;
     float doVoltage = (lastRawDO * 3.3) / 4095.0;

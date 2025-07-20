@@ -23,7 +23,6 @@ const unsigned long DATA_LOG_INTERVAL = 2000;    // Cada 2 segundos
 const unsigned long STATUS_DISPLAY_INTERVAL = 10000; // Mostrar estado cada 10 segundos
 
 // Pin de control para iniciar lectura
-#define CONTROL_PIN 47
 
 void init_logger(){
 #if USE_LOGGER
@@ -133,10 +132,6 @@ void setup() {
     while (!Serial && millis() < 5000) {
     }
     delay(100);
-
-    // Configurar pin de control
-    pinMode(CONTROL_PIN, INPUT_PULLUP);
-    LOG_INFO("MAIN", "Pin de control " + String(CONTROL_PIN) + " configurado (LOW = activo)");
 
     // Inicializar sistema de logging
     init_logger();

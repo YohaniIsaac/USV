@@ -8,14 +8,14 @@ CommandManager::CommandManager(AnalogSensors& sensors) : sensors(sensors) {
 void CommandManager::begin() {    
     // Inicializar EEPROM
     if (!EEPROMManager::begin()) {
-        LOG_ERROR("CMD", "Error al inicializar EEPROM");
+        Serial.println("Error al inicializar EEPROM");
         return;
     } else {
-        LOG_INFO("CMD", "Sistema EEPROM inicializado");
+        Serial.println("Sistema EEPROM inicializado");
     }
     
-    LOG_INFO("CMD", "Sistema de calibración inicializado");
-    LOG_INFO("CMD", "Escriba 'help' para ver comandos disponibles");
+    Serial.println( "Sistema de calibración inicializado");
+    Serial.println( "Escriba 'help' para ver comandos disponibles");
 }
 
 void CommandManager::update() {   
