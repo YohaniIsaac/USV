@@ -36,6 +36,16 @@ PixhawkInterface::PixhawkInterface()  {
     airSpeed = 0.0;
     numSatellites = 0;
     gpsFixType = 0;
+
+    // VARIABLES DE TIEMPO GPS
+    gpsTimeUsec = 0;
+    gpsYear = 0;
+    gpsMonth = 0;
+    gpsDay = 0;
+    gpsHour = 0;
+    gpsMinute = 0;
+    gpsSecond = 0;
+    gpsTimeValid = false;
     
     // Estado de conexión
     connected = false;
@@ -162,6 +172,11 @@ void PixhawkInterface::processMAVLinkMessage(uint8_t* buffer, uint8_t length, bo
             LOG_VERBOSE("PIXHAWK", "⚙️ SYS_STATUS recibido");
             parseSysStatus(payload);
             break;
+
+        case 2:  // SYSTEM_TIME - DATOS DE TIEMPO
+            LOG_DEBUG("PIXHAWK", "🕐 SYSTEM_TIME recibido");
+            parseSystemTime(payload);
+            break;
             
         case 24: // GPS_RAW_INT
             LOG_DEBUG("PIXHAWK", "🛰️ GPS_RAW_INT recibido");
@@ -228,7 +243,35 @@ void PixhawkInterface::parseSysStatus(uint8_t* payload) {
               String(batteryCurrent, 2) + "A, " + String(batteryRemaining) + "%");
 }
 
+// 🕐 NUEVO: Parsear mensaje SYSTEM_TIME
+void PixhawkInterface::parseSystemTime(uint8_t* payload) {
+    // SYSTEM_TIME contiene:
+    // time_unix_usec (uint64_t): tiempo UTC en microsegundos
+    // time_boot_ms (uint32_t): tiempo desde boot en ms
+    
+    uint64_t timeUnixUsec = *((uint64_t*)&payload[0]);
+    
+    if (timeUnixUsec > 0) {
+        gpsTimeUsec = timeUnixUsec;
+        convertUnixTimeToDateTime(timeUnixUsec);
+        gpsTimeValid = true;
+        
+        LOG_INFO("PIXHAWK", "🕐 Tiempo del sistema actualizado: " + getGPSTimeString());
+    }
+}
+
 void PixhawkInterface::parseGPSRawInt(uint8_t* payload) {
+    //   EXTRAER TIEMPO GPS (primeros 8 bytes del mensaje)
+    uint64_t timeUsec = *((uint64_t*)&payload[0]);
+    
+    if (timeUsec > 0) {
+        gpsTimeUsec = timeUsec;
+        convertUnixTimeToDateTime(timeUsec);
+        gpsTimeValid = true;
+        
+        LOG_DEBUG("PIXHAWK", "🕐 Tiempo GPS actualizado: " + getGPSTimeString());
+    }
+
     // Tipo de fix GPS y satélites (posiciones 36, 37)
     gpsFixType = payload[36];
     tipoFixGPS = gpsFixType;  // Compatibilidad
@@ -334,6 +377,69 @@ void PixhawkInterface::parseGPSStatus(uint8_t* payload) {
     LOG_DEBUG("PIXHAWK", "🛰️ GPS Status: " + String(numSatellites) + " satélites visibles");
 }
 
+// Convertir timestamp UNIX a fecha/hora
+void PixhawkInterface::convertUnixTimeToDateTime(uint64_t unixTimeUsec) {
+    // Convertir microsegundos a segundos
+    uint64_t unixTimeSec = unixTimeUsec / 1000000ULL;
+    
+    // Cálculos para convertir timestamp UNIX a fecha/hora
+    // Segundos por día
+    const uint32_t secondsPerDay = 86400;
+    const uint32_t secondsPerHour = 3600;
+    const uint32_t secondsPerMinute = 60;
+    
+    // Días desde epoch (1 enero 1970)
+    uint32_t daysSinceEpoch = unixTimeSec / secondsPerDay;
+    uint32_t secondsInDay = unixTimeSec % secondsPerDay;
+    
+    // Calcular hora, minuto, segundo
+    gpsHour = secondsInDay / secondsPerHour;
+    gpsMinute = (secondsInDay % secondsPerHour) / secondsPerMinute;
+    gpsSecond = secondsInDay % secondsPerMinute;
+    
+    // Calcular año, mes, día
+    // Empezar desde 1970
+    uint16_t year = 1970;
+    uint32_t daysRemaining = daysSinceEpoch;
+    
+    // Encontrar el año
+    while (true) {
+        uint32_t daysInYear = isLeapYear(year) ? 366 : 365;
+        if (daysRemaining >= daysInYear) {
+            daysRemaining -= daysInYear;
+            year++;
+        } else {
+            break;
+        }
+    }
+    gpsYear = year;
+    
+    // Días por mes (año no bisiesto)
+    uint8_t daysInMonth[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    
+    // Ajustar febrero si es año bisiesto
+    if (isLeapYear(year)) {
+        daysInMonth[1] = 29;
+    }
+    
+    // Encontrar mes y día
+    uint8_t month = 1;
+    for (month = 1; month <= 12; month++) {
+        if (daysRemaining >= daysInMonth[month - 1]) {
+            daysRemaining -= daysInMonth[month - 1];
+        } else {
+            break;
+        }
+    }
+    gpsMonth = month;
+    gpsDay = daysRemaining + 1;  // +1 porque los días empiezan en 1, no 0
+}
+
+//  Verificar año bisiesto
+bool PixhawkInterface::isLeapYear(uint16_t year) {
+    return ((year % 4 == 0) && (year % 100 != 0)) || (year % 400 == 0);
+}
+
 // ====================== GETTERS (mantener interfaz original) ======================
 
 float PixhawkInterface::getLatitude() {
@@ -380,21 +486,87 @@ int PixhawkInterface::getNumSatellites() {
     return numSatellites;
 }
 
+// 🕐 NUEVOS GETTERS PARA DATOS DE TIEMPO
+uint64_t PixhawkInterface::getGPSTimeUsec() {
+    return gpsTimeUsec;
+}
+
+uint16_t PixhawkInterface::getGPSYear() {
+    return gpsYear;
+}
+
+uint8_t PixhawkInterface::getGPSMonth() {
+    return gpsMonth;
+}
+
+uint8_t PixhawkInterface::getGPSDay() {
+    return gpsDay;
+}
+
+uint8_t PixhawkInterface::getGPSHour() {
+    return gpsHour;
+}
+
+uint8_t PixhawkInterface::getGPSMinute() {
+    return gpsMinute;
+}
+
+uint8_t PixhawkInterface::getGPSSecond() {
+    return gpsSecond;
+}
+
+bool PixhawkInterface::hasValidGPSTime() {
+    return gpsTimeValid && gpsYear >= 2020;
+}
+
+String PixhawkInterface::getGPSTimeString() {
+    if (!hasValidGPSTime()) {
+        return "N/A";
+    }
+    
+    char buffer[20];
+    sprintf(buffer, "%04d-%02d-%02d %02d:%02d:%02d", 
+            gpsYear, gpsMonth, gpsDay, gpsHour, gpsMinute, gpsSecond);
+    return String(buffer);
+}
+
+String PixhawkInterface::getGPSDateString() {
+    if (!hasValidGPSTime()) {
+        return "N/A";
+    }
+    
+    char buffer[12];
+    sprintf(buffer, "%04d-%02d-%02d", gpsYear, gpsMonth, gpsDay);
+    return String(buffer);
+}
+
+String PixhawkInterface::getGPSTimeOnlyString() {
+    if (!hasValidGPSTime()) {
+        return "N/A";
+    }
+    
+    char buffer[10];
+    sprintf(buffer, "%02d:%02d:%02d", gpsHour, gpsMinute, gpsSecond);
+    return String(buffer);
+}
+
 // ====================== FUNCIONES CSV Y DISPLAY ======================
 
 String PixhawkInterface::getCSVHeader() {
-    return "Latitude,Longitude,Altitude";
+    return "Latitude,Longitude,Altitude,GPSYear,GPSMonth,GPSDay,GPSHour,GPSMinute,GPSSecond";
 }
 
 String PixhawkInterface::save_CSVData() {
     String data = "";
     data += String(latitude, 6) + ",";
     data += String(longitude, 6) + ",";
-    data += String(altitude, 2);
-    // Agregar más campos si necesitas:
-    // data += "," + String(heading, 1);
-    // data += "," + String(batteryVoltage, 2);
-    
+    data += String(altitude, 2) + ",";
+    data += String(gpsYear) + ",";
+    data += String(gpsMonth) + ",";
+    data += String(gpsDay) + ",";
+    data += String(gpsHour) + ",";
+    data += String(gpsMinute) + ",";
+    data += String(gpsSecond) + ",";
     return data;
 }
 
@@ -405,7 +577,17 @@ void PixhawkInterface::show_message() {
     }
     
     LOG_INFO("PIXHAWK", "=================== DATOS PIXHAWK ===================");
-    
+
+    // 🕐 MOSTRAR DATOS DE TIEMPO PRIMERO
+    LOG_INFO("PIXHAWK", " TIEMPO GPS:");
+    if (hasValidGPSTime()) {
+        LOG_INFO("PIXHAWK", "  Fecha: " + getGPSDateString());
+        LOG_INFO("PIXHAWK", "  Hora UTC: " + getGPSTimeOnlyString());
+        LOG_INFO("PIXHAWK", "  Timestamp: " + String(gpsTimeUsec) + " μs");
+    } else {
+        LOG_WARN("PIXHAWK", "  Sin datos válidos de tiempo GPS");
+    }
+
     // 📍 Datos de posición
     LOG_INFO("PIXHAWK", "📍 POSICIÓN:");
     LOG_INFO("PIXHAWK", "  Latitud: " + String(latitude, 6) + "°");

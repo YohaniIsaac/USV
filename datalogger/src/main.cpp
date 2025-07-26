@@ -52,7 +52,7 @@ String createCSVHeader() {
     header += "pH,DO,EC,";
     
     // 3. Datos de Pixhawk
-    header += "Latitude,Longitude,Altitude,";
+    header += pixhawk.getCSVHeader();
     
     // 4. Sistema de emergencia
     // header += "EmergencyActive,SystemVoltage,PowerControlActive";
@@ -78,7 +78,7 @@ String collectAllData() {
     // data += String(sensors.lastRawEC) + ",";
     
     // 3. Datos de Pixhawk
-    data += pixhawk.save_CSVData() + ",";
+    data += pixhawk.save_CSVData();
     
     // 4. Sistema de emergencia
     // data += String(emergencySystem.isEmergencyActive() ? 1 : 0) + ",";
@@ -90,7 +90,17 @@ String collectAllData() {
 
 void displaySystemStatus() {
     LOG_INFO("MAIN", "=================== ESTADO DEL SISTEMA ===================");
-    
+
+    //  MOSTRAR TIEMPO GPS PRIMERO
+    LOG_INFO("MAIN", "🕐 TIEMPO GPS:");
+    if (pixhawk.hasValidGPSTime()) {
+        LOG_INFO("MAIN", "  Fecha: " + pixhawk.getGPSDateString());
+        LOG_INFO("MAIN", "  Hora UTC: " + pixhawk.getGPSTimeOnlyString());
+        LOG_INFO("MAIN", "  DateTime completo: " + pixhawk.getGPSTimeString());
+    } else {
+        LOG_WARN("MAIN", "  Sin datos válidos de tiempo GPS");
+    }
+
     // Estado de emergencia
     LOG_INFO("MAIN", "  SISTEMA DE EMERGENCIA:");
     LOG_INFO("MAIN", "  Voltaje: " + String(emergencySystem.getCurrentVoltage(), 3) + "V");

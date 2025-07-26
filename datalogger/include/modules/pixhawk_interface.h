@@ -21,7 +21,7 @@ public:
     float getLongitude();
     float getAltitude();
     float getHeading();
-    
+
     // 🔋 Getters para batería
     float getBatteryVoltage();      // Voltaje en V
     float getBatteryCurrent();      // Corriente en A  
@@ -33,6 +33,19 @@ public:
     float getAirSpeed();           // Velocidad del aire en m/s
     int getNumSatellites();        // Número de satélites GPS
     
+    // DATOS DE TIEMPO GPS
+    uint64_t getGPSTimeUsec();     // Tiempo GPS en microsegundos desde epoch UNIX
+    uint16_t getGPSYear();         // Año (ej: 2025)
+    uint8_t getGPSMonth();         // Mes (1-12)
+    uint8_t getGPSDay();           // Día (1-31)
+    uint8_t getGPSHour();          // Hora (0-23) UTC
+    uint8_t getGPSMinute();        // Minuto (0-59)
+    uint8_t getGPSSecond();        // Segundo (0-59)
+    bool hasValidGPSTime();        // Si los datos de tiempo son válidos
+    String getGPSTimeString();     // Formato "YYYY-MM-DD HH:MM:SS"
+    String getGPSDateString();     // Formato "YYYY-MM-DD"
+    String getGPSTimeOnlyString(); // Formato "HH:MM:SS"
+
     // Funciones para CSV
     String save_CSVData();
     String getCSVHeader();
@@ -74,7 +87,17 @@ private:
     float airSpeed;
     int numSatellites;
     int gpsFixType;
-    
+
+    // DATOS DE TIEMPO GPS
+    uint64_t gpsTimeUsec;          // Tiempo GPS en microsegundos desde epoch UNIX
+    uint16_t gpsYear;              // Año
+    uint8_t gpsMonth;              // Mes (1-12)
+    uint8_t gpsDay;                // Día (1-31)
+    uint8_t gpsHour;               // Hora (0-23) UTC
+    uint8_t gpsMinute;             // Minuto (0-59)
+    uint8_t gpsSecond;             // Segundo (0-59)
+    bool gpsTimeValid;             // Si los datos de tiempo son válidos
+
     // Estado de conexión y sistema
     bool connected;
     bool armed;
@@ -96,6 +119,11 @@ private:
     void parseVFRHUD(uint8_t* payload);
     void parseBatteryStatus(uint8_t* payload);
     void parseGPSStatus(uint8_t* payload);
+    void parseSystemTime(uint8_t* payload);
+
+    // FUNCIONES AUXILIARES PARA TIEMPO
+    void convertUnixTimeToDateTime(uint64_t unixTimeUsec);  // Convertir timestamp a fecha/hora
+    bool isLeapYear(uint16_t year);   
 };
 
 #endif // PIXHAWK_INTERFACE_H
